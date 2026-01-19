@@ -26,7 +26,7 @@ it('respects max delay', function () {
 });
 
 it('should retry when attempts remain', function () {
-    $strategy = new FibonacciBackoff();
+    $strategy = new FibonacciBackoff;
 
     expect($strategy->shouldRetry(new RuntimeException('test'), 1, 3))->toBeTrue();
     expect($strategy->shouldRetry(new RuntimeException('test'), 2, 3))->toBeTrue();

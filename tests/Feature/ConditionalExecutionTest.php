@@ -9,6 +9,7 @@ it('skips execution when when() condition is false', function () {
 
     $result = Attempt::try(function () use (&$executed) {
         $executed = true;
+
         return 'executed';
     })
         ->when(false)
@@ -24,6 +25,7 @@ it('executes when when() condition is true', function () {
 
     $result = Attempt::try(function () use (&$executed) {
         $executed = true;
+
         return 'executed';
     })
         ->when(true)
@@ -39,6 +41,7 @@ it('accepts closure for when() condition', function () {
     $result = Attempt::try(fn () => 'executed')
         ->when(function () use (&$conditionCalled) {
             $conditionCalled = true;
+
             return true;
         })
         ->run();
@@ -52,6 +55,7 @@ it('skips execution when unless() condition is true', function () {
 
     $result = Attempt::try(function () use (&$executed) {
         $executed = true;
+
         return 'executed';
     })
         ->unless(true)
@@ -66,6 +70,7 @@ it('executes when unless() condition is false', function () {
 
     $result = Attempt::try(function () use (&$executed) {
         $executed = true;
+
         return 'executed';
     })
         ->unless(false)
@@ -81,6 +86,7 @@ it('accepts closure for unless() condition', function () {
     $result = Attempt::try(fn () => 'executed')
         ->unless(function () use (&$conditionCalled) {
             $conditionCalled = true;
+
             return false;
         })
         ->run();

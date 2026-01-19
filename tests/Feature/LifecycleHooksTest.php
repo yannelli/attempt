@@ -102,6 +102,7 @@ it('runs onRetry callback when retrying', function () {
         if (count($retryAttempts) < 2) {
             throw new RuntimeException('fail');
         }
+
         return 'success';
     })
         ->retry(3)

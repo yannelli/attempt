@@ -58,6 +58,7 @@ it('supports failFast mode', function () {
         },
         function () use (&$executed) {
             $executed[] = 2;
+
             return 'second';
         },
     ])
@@ -74,11 +75,15 @@ it('supports retry on concurrent attempts', function () {
     $results = Attempt::concurrent([
         function () use (&$attempts) {
             $attempts[0]++;
-            if ($attempts[0] < 2) throw new RuntimeException('fail');
+            if ($attempts[0] < 2) {
+                throw new RuntimeException('fail');
+            }
+
             return 'first';
         },
         function () use (&$attempts) {
             $attempts[1]++;
+
             return 'second';
         },
     ])

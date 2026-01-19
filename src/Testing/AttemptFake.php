@@ -6,9 +6,7 @@ namespace Yannelli\Attempt\Testing;
 
 use Closure;
 use Illuminate\Support\Collection;
-use PHPUnit\Framework\Assert as PHPUnit;
 use Throwable;
-use Yannelli\Attempt\AttemptBuilder;
 use Yannelli\Attempt\Builders\PipelineAttemptBuilder;
 use Yannelli\Attempt\Testing\Concerns\AttemptAssertions;
 

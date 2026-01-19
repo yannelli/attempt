@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-use Yannelli\Attempt\Facades\Attempt;
-use Yannelli\Attempt\AttemptBuilder;
 use Yannelli\Attempt\AttemptResult;
-use Yannelli\Attempt\Tests\Fixtures\TestAttemptable;
+use Yannelli\Attempt\Facades\Attempt;
 use Yannelli\Attempt\Tests\Fixtures\InvokableCallable;
+use Yannelli\Attempt\Tests\Fixtures\TestAttemptable;
 
 it('can execute via facade', function () {
     $result = Attempt::try(fn () => 'hello world')
@@ -16,7 +15,7 @@ it('can execute via facade', function () {
 });
 
 it('can execute closure with input', function () {
-    $result = Attempt::try(fn ($a, $b) => $a . ' ' . $b, 'hello', 'world')
+    $result = Attempt::try(fn ($a, $b) => $a.' '.$b, 'hello', 'world')
         ->thenReturn();
 
     expect($result)->toBe('hello world');
@@ -97,6 +96,7 @@ it('supports array of callables as primary', function () {
         },
         function () use (&$calls) {
             $calls[] = 'second';
+
             return 'second success';
         },
     ])->run();

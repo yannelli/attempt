@@ -3,13 +3,13 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Event;
-use Yannelli\Attempt\Facades\Attempt;
+use Yannelli\Attempt\Events\AllAttemptsFailed;
+use Yannelli\Attempt\Events\AttemptFailed;
 use Yannelli\Attempt\Events\AttemptStarted;
 use Yannelli\Attempt\Events\AttemptSucceeded;
-use Yannelli\Attempt\Events\AttemptFailed;
-use Yannelli\Attempt\Events\RetryAttempted;
 use Yannelli\Attempt\Events\FallbackTriggered;
-use Yannelli\Attempt\Events\AllAttemptsFailed;
+use Yannelli\Attempt\Events\RetryAttempted;
+use Yannelli\Attempt\Facades\Attempt;
 
 it('fires AttemptStarted event', function () {
     Event::fake();
@@ -50,6 +50,7 @@ it('fires RetryAttempted on retry', function () {
         if ($attempts < 2) {
             throw new RuntimeException('fail');
         }
+
         return 'success';
     })
         ->retry(2)

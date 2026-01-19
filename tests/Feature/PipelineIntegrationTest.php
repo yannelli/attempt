@@ -19,9 +19,11 @@ it('can create pipeline builder', function () {
 
 it('supports via method', function () {
     $result = Attempt::pipeline([
-        new class {
-            public function process($data, $next) {
-                return $next($data . '-processed');
+        new class
+        {
+            public function process($data, $next)
+            {
+                return $next($data.'-processed');
             }
         },
     ])
@@ -41,7 +43,8 @@ it('supports retry on pipeline', function () {
             if ($attempts < 3) {
                 throw new RuntimeException('fail');
             }
-            return $next($data . '-processed');
+
+            return $next($data.'-processed');
         },
     ])
         ->send('input')
@@ -72,6 +75,7 @@ it('can use AttemptPipe in native Laravel pipeline', function () {
         if ($attempts < 2) {
             throw new RuntimeException('fail');
         }
+
         return $data * 2;
     })->retry(3);
 
@@ -92,6 +96,7 @@ it('AttemptPipe supports delay', function () {
         if ($attempts < 2) {
             throw new RuntimeException('fail');
         }
+
         return $data;
     })
         ->retry(3)

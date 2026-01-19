@@ -12,6 +12,7 @@ it('retries on failure', function () {
         if ($attempts < 3) {
             throw new RuntimeException('fail');
         }
+
         return 'success';
     })
         ->retry(3)
@@ -46,6 +47,7 @@ it('supports delay between retries', function () {
         if (count($times) < 3) {
             throw new RuntimeException('fail');
         }
+
         return 'success';
     })
         ->retry(3)
@@ -69,6 +71,7 @@ it('supports array delays', function () {
         if ($attempts < 3) {
             throw new RuntimeException('fail');
         }
+
         return 'success';
     })
         ->retry(3)
@@ -86,6 +89,7 @@ it('supports exponential backoff', function () {
         if ($attempts < 3) {
             throw new RuntimeException('fail');
         }
+
         return 'success';
     })
         ->retry(3)
@@ -103,6 +107,7 @@ it('supports linear backoff', function () {
         if ($attempts < 3) {
             throw new RuntimeException('fail');
         }
+
         return 'success';
     })
         ->retry(3)
@@ -120,6 +125,7 @@ it('supports jitter', function () {
         if ($attempts < 2) {
             throw new RuntimeException('fail');
         }
+
         return 'success';
     })
         ->retry(2)
@@ -167,12 +173,14 @@ it('supports custom delay callback', function () {
         if (count($delays) < 2) {
             throw new RuntimeException('fail');
         }
+
         return 'success';
     })
         ->retry(3)
         ->delayUsing(function ($attempt) use (&$delays) {
             $delay = $attempt * 10;
             $delays[] = $delay;
+
             return $delay;
         })
         ->run();

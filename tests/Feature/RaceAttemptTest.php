@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Yannelli\Attempt\Facades\Attempt;
-use Yannelli\Attempt\Exceptions\AllFallbacksFailed;
 
 it('returns first successful result', function () {
     $result = Attempt::race([
@@ -46,7 +45,10 @@ it('supports retry on race attempts', function () {
     $result = Attempt::race([
         function () use (&$attempts) {
             $attempts[0]++;
-            if ($attempts[0] < 2) throw new RuntimeException('fail');
+            if ($attempts[0] < 2) {
+                throw new RuntimeException('fail');
+            }
+
             return 'first succeeds on retry';
         },
     ])
@@ -73,10 +75,12 @@ it('returns first success even if later ones would succeed', function () {
     $result = Attempt::race([
         function () use (&$executed) {
             $executed[] = 1;
+
             return 'first';
         },
         function () use (&$executed) {
             $executed[] = 2;
+
             return 'second';
         },
     ])->run();

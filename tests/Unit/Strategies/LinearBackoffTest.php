@@ -30,7 +30,7 @@ it('uses base delay when 0', function () {
 });
 
 it('should retry when attempts remain', function () {
-    $strategy = new LinearBackoff();
+    $strategy = new LinearBackoff;
 
     expect($strategy->shouldRetry(new RuntimeException('test'), 1, 3))->toBeTrue();
     expect($strategy->shouldRetry(new RuntimeException('test'), 2, 3))->toBeTrue();

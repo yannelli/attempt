@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use Yannelli\Attempt\AttemptBuilder;
 use Yannelli\Attempt\AttemptResult;
-use Yannelli\Attempt\Tests\Fixtures\TestAttemptable;
 use Yannelli\Attempt\Tests\Fixtures\InvokableCallable;
+use Yannelli\Attempt\Tests\Fixtures\TestAttemptable;
 
 it('can be created with a closure', function () {
     $builder = new AttemptBuilder(fn () => 'test');
@@ -87,6 +87,7 @@ it('can set retry count', function () {
         if ($attempts < 3) {
             throw new RuntimeException('fail');
         }
+
         return 'success';
     })
         ->retry(3)
@@ -116,6 +117,7 @@ it('skips execution when condition is false', function () {
 
     $result = AttemptBuilder::make(function () use (&$executed) {
         $executed = true;
+
         return 'test';
     })
         ->when(false)
@@ -130,6 +132,7 @@ it('executes when condition is true', function () {
 
     AttemptBuilder::make(function () use (&$executed) {
         $executed = true;
+
         return 'test';
     })
         ->when(true)
@@ -143,6 +146,7 @@ it('skips execution when unless condition is true', function () {
 
     $result = AttemptBuilder::make(function () use (&$executed) {
         $executed = true;
+
         return 'test';
     })
         ->unless(true)
@@ -267,6 +271,7 @@ it('supports array of callables as fallback chain', function () {
         },
         function () use (&$calls) {
             $calls[] = 'second';
+
             return 'second succeeded';
         },
     ])->run();
@@ -281,6 +286,7 @@ it('caches result and does not re-execute', function () {
 
     $builder = AttemptBuilder::make(function () use (&$count) {
         $count++;
+
         return $count;
     });
 

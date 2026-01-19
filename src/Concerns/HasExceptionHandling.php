@@ -41,7 +41,7 @@ trait HasExceptionHandling
     {
         if (! is_subclass_of($class, ExceptionHandler::class)) {
             throw new \InvalidArgumentException(
-                "Exception handler must implement ".ExceptionHandler::class
+                'Exception handler must implement '.ExceptionHandler::class
             );
         }
 

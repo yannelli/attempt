@@ -29,10 +29,12 @@ it('chains multiple fallbacks', function () {
             },
             function () use (&$calls) {
                 $calls[] = 'fallback2';
+
                 return 'fallback2 success';
             },
             function () use (&$calls) {
                 $calls[] = 'fallback3';
+
                 return 'should not reach';
             },
         ])
@@ -94,6 +96,7 @@ it('can append fallbacks with orFallback', function () {
         })
         ->orFallback(function () use (&$calls) {
             $calls[] = 'fallback2';
+
             return 'success';
         })
         ->run();
