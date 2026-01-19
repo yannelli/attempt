@@ -255,17 +255,23 @@ $result = Pipeline::send($data)
 ### Concurrent (Run All)
 
 ```php
-$results = Attempt::concurrent([
+$concurrent = Attempt::concurrent([
     fn() => Http::get('https://api1.example.com'),
     fn() => Http::get('https://api2.example.com'),
     fn() => Http::get('https://api3.example.com'),
-])->run();
+]);
 
-// Get successful results only
-$successful = $results->successes();
+// Run all and get array of AttemptResult objects
+$results = $concurrent->run();
 
-// Get failed results only
-$failed = $results->failures();
+// Get only successful results
+$successful = Attempt::concurrent([...])->successful();
+
+// Get only failed results
+$failed = Attempt::concurrent([...])->failed();
+
+// Get values directly
+$values = Attempt::concurrent([...])->thenReturn();
 ```
 
 ### Race (First Success Wins)
