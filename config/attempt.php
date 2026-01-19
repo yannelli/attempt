@@ -69,14 +69,14 @@ return [
     | Exceptions that should never or always trigger retries.
     */
     'never_retry' => [
-      //  \Illuminate\Validation\ValidationException::class,
-      //  \Illuminate\Auth\AuthenticationException::class,
-      //  \Illuminate\Auth\Access\AuthorizationException::class,
-      //  \Illuminate\Database\Eloquent\ModelNotFoundException::class,
-      //  \Symfony\Component\HttpKernel\Exception\NotFoundHttpException::class,
+        //  \Illuminate\Validation\ValidationException::class,
+        //  \Illuminate\Auth\AuthenticationException::class,
+        //  \Illuminate\Auth\Access\AuthorizationException::class,
+        //  \Illuminate\Database\Eloquent\ModelNotFoundException::class,
+        //  \Symfony\Component\HttpKernel\Exception\NotFoundHttpException::class,
     ],
 
     'always_retry' => [
-      //  \Illuminate\Http\Client\ConnectionException::class,
+        //  \Illuminate\Http\Client\ConnectionException::class,
     ],
 ];
