@@ -2,6 +2,20 @@
 
 All notable changes to `yannelli/attempt` will be documented in this file.
 
+## v0.1.1 - 2026-01-19
+
+All notable changes to `attempt` will be documented in this file.
+
+### v0.1.1 - 2025-01-19
+
+#### Changed
+
+- Rewrote README documentation to be more warm and readable
+- Added CONTRIBUTING.md with contribution guidelines
+- Added SECURITY.md with vulnerability reporting policy
+
+**Full Changelog:** https://github.com/yannelli/attempt/compare/v0.1.0…v0.1.1
+
 ## v0.1.0 - 2026-01-19
 
 ### What's Changed
