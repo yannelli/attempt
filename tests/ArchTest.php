@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Support\Facades\Facade;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
