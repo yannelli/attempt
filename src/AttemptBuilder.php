@@ -633,16 +633,7 @@ class AttemptBuilder
     protected function scheduleDeferredCallbacks(AttemptContext $context): void
     {
         foreach ($this->deferCallbacks as $callback) {
-            if (function_exists('defer')) {
-                defer(fn () => $callback($context));
-            } else {
-                // Fallback: run immediately if defer is not available
-                try {
-                    $callback($context);
-                } catch (Throwable $e) {
-                    report($e);
-                }
-            }
+            defer(fn () => $callback($context));
         }
     }
 
