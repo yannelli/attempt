@@ -23,7 +23,7 @@ use Yannelli\Attempt\Testing\AttemptFake;
  * @method static bool isFaked()
  * @method static void resetFake()
  *
- * @see \Yannelli\Attempt\AttemptManager
+ * @see AttemptManager
  */
 class Attempt extends Facade
 {

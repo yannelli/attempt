@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Carbon\Carbon;
 use Yannelli\Attempt\AttemptContext;
 
 it('creates with max attempts and input', function () {
@@ -33,7 +34,7 @@ it('has startedAt timestamp', function () {
         input: []
     );
 
-    expect($context->startedAt)->toBeInstanceOf(\Carbon\Carbon::class);
+    expect($context->startedAt)->toBeInstanceOf(Carbon::class);
 });
 
 it('calculates elapsed time', function () {

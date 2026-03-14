@@ -1,6 +1,11 @@
 <?php
 
 declare(strict_types=1);
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Support\Facades\Facade;
+use Spatie\LaravelPackageTools\PackageServiceProvider;
+use Yannelli\Attempt\Contracts\RetryStrategy;
+use Yannelli\Attempt\Exceptions\AttemptException;
 
 arch('contracts are interfaces')
     ->expect('Yannelli\Attempt\Contracts')
@@ -8,16 +13,16 @@ arch('contracts are interfaces')
 
 arch('strategies implement RetryStrategy')
     ->expect('Yannelli\Attempt\Strategies')
-    ->toImplement(\Yannelli\Attempt\Contracts\RetryStrategy::class);
+    ->toImplement(RetryStrategy::class);
 
 arch('exceptions extend base exception')
     ->expect('Yannelli\Attempt\Exceptions')
-    ->toExtend(\Yannelli\Attempt\Exceptions\AttemptException::class)
-    ->ignoring(\Yannelli\Attempt\Exceptions\AttemptException::class);
+    ->toExtend(AttemptException::class)
+    ->ignoring(AttemptException::class);
 
 arch('events use Dispatchable trait')
     ->expect('Yannelli\Attempt\Events')
-    ->toUseTrait(\Illuminate\Foundation\Events\Dispatchable::class);
+    ->toUseTrait(Dispatchable::class);
 
 arch('no debugging statements')
     ->expect('Yannelli\Attempt')
@@ -33,11 +38,11 @@ arch('builder classes are not final')
 
 arch('facades extend base facade')
     ->expect('Yannelli\Attempt\Facades')
-    ->toExtend(\Illuminate\Support\Facades\Facade::class);
+    ->toExtend(Facade::class);
 
 arch('service provider extends package service provider')
     ->expect('Yannelli\Attempt\AttemptServiceProvider')
-    ->toExtend(\Spatie\LaravelPackageTools\PackageServiceProvider::class);
+    ->toExtend(PackageServiceProvider::class);
 
 arch('strict types are declared')
     ->expect('Yannelli\Attempt')
