@@ -461,14 +461,22 @@ $result = Attempt::race([
 For long-running operations, you may dispatch an attempt to run asynchronously on the queue:
 
 ```php
-$pendingResult = Attempt::try(LongRunningTask::class, $data)
+Attempt::try(LongRunningTask::class, $data)
     ->retry(3)
     ->async()
     ->onQueue('processing')
+    ->then(fn ($value) => Log::info('Completed', ['value' => $value]))
+    ->catch(fn (Throwable $e) => Log::error('Failed', ['error' => $e->getMessage()]))
     ->dispatch();
+```
 
-// Wait for result when ready
-$result = $pendingResult->await();
+If you need to execute the attempt synchronously instead (bypassing the queue), you may use the `await` method:
+
+```php
+$result = Attempt::try(LongRunningTask::class, $data)
+    ->retry(3)
+    ->async()
+    ->await(); // Runs synchronously, returns AttemptResult
 ```
 
 ## Working with Results
