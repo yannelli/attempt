@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Yannelli\Attempt;
 
-use Carbon\Carbon;
+use Illuminate\Support\Carbon;
 use Throwable;
 
 class AttemptContext
