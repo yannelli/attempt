@@ -2,6 +2,32 @@
 
 All notable changes to `yannelli/attempt` will be documented in this file.
 
+## v1.0.0 - 2026-03-14
+
+### Breaking Changes
+
+- **Dropped PHP 8.2 and 8.3 support** — now requires PHP 8.4+
+- **Dropped Laravel 11 support** — now requires Laravel 12+
+- Updated all `illuminate/*` dependencies to `^12.0`
+- Updated dev dependencies: `orchestra/testbench` to `^10.0`, `pestphp/pest` to `^3.8.6`, `pestphp/pest-plugin-arch` to `^3.0`, `pestphp/pest-plugin-laravel` to `^3.0`
+
+### Bug Fixes
+
+- **Fixed async closure serialization** — closures are now wrapped in `SerializableClosure` for proper queue serialization, preventing failures when dispatching async attempts
+- **Fixed `AsyncAttemptBuilder`** — removed incorrect `ShouldQueue` interface that should only be on the job class, not the builder
+- **Fixed async job closure invocation** — `then` and `catch` callbacks are now called via `getClosure()` for consistency with `SerializableClosure`
+- **Fixed async job configuration** — `delayCallback`, `catchHandlers`, and `finallyCallbacks` are now properly restored when rebuilding the `AttemptBuilder` inside the queued job
+- **Fixed phpstan config** — removed reference to non-existent `database` path
+- **Fixed phpunit config** — renamed placeholder test suite from `VendorName` to `Attempt`
+
+### Improvements
+
+- **Updated async documentation** — corrected the README async execution example to show the `dispatch()`/`await()` API accurately
+- **Simplified `AttemptBuilder`** — removed unnecessary `defer()` existence check since Laravel 12 always provides it
+- **Used `Illuminate\Support\Carbon`** instead of `Carbon\Carbon` in `AttemptContext` for better Laravel integration
+- **Code style cleanup** — replaced fully-qualified class references with imports across config, facades, and tests
+- **CI matrix updated** — trimmed to PHP 8.4 + Laravel 12 only
+
 ## v0.1.1 - 2026-01-19
 
 All notable changes to `attempt` will be documented in this file.
