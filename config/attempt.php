@@ -1,5 +1,10 @@
 <?php
 
+use Yannelli\Attempt\Strategies\DecorrelatedJitter;
+use Yannelli\Attempt\Strategies\ExponentialBackoff;
+use Yannelli\Attempt\Strategies\FibonacciBackoff;
+use Yannelli\Attempt\Strategies\LinearBackoff;
+
 return [
     /*
     |--------------------------------------------------------------------------
@@ -20,22 +25,22 @@ return [
     */
     'backoff_strategies' => [
         'exponential' => [
-            'class' => \Yannelli\Attempt\Strategies\ExponentialBackoff::class,
+            'class' => ExponentialBackoff::class,
             'base' => 100,
             'multiplier' => 2.0,
             'max' => 30000,
         ],
         'linear' => [
-            'class' => \Yannelli\Attempt\Strategies\LinearBackoff::class,
+            'class' => LinearBackoff::class,
             'base' => 100,
             'increment' => 100,
         ],
         'fibonacci' => [
-            'class' => \Yannelli\Attempt\Strategies\FibonacciBackoff::class,
+            'class' => FibonacciBackoff::class,
             'base' => 100,
         ],
         'decorrelated_jitter' => [
-            'class' => \Yannelli\Attempt\Strategies\DecorrelatedJitter::class,
+            'class' => DecorrelatedJitter::class,
             'base' => 100,
             'max' => 30000,
         ],
