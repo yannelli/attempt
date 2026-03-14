@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace Yannelli\Attempt\Builders;
 
 use Closure;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Queue;
 use Yannelli\Attempt\AttemptBuilder;
 use Yannelli\Attempt\AttemptResult;
 
-class AsyncAttemptBuilder implements ShouldQueue
+class AsyncAttemptBuilder
 {
     protected ?string $connection = null;
 
