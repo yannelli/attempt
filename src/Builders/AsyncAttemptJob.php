@@ -44,13 +44,13 @@ class AsyncAttemptJob implements ShouldQueue
             $result = $builder->run();
 
             if ($result->succeeded() && $this->thenCallback !== null) {
-                ($this->thenCallback)($result->value());
+                ($this->thenCallback->getClosure())($result->value());
             } elseif ($result->failed() && $this->catchCallback !== null) {
-                ($this->catchCallback)($result->exception());
+                ($this->catchCallback->getClosure())($result->exception());
             }
         } catch (Throwable $e) {
             if ($this->catchCallback !== null) {
-                ($this->catchCallback)($e);
+                ($this->catchCallback->getClosure())($e);
             } else {
                 throw $e;
             }
