@@ -10,6 +10,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Laravel\SerializableClosure\SerializableClosure;
 use Throwable;
 use Yannelli\Attempt\AttemptBuilder;
 
@@ -20,11 +21,21 @@ class AsyncAttemptJob implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
+    protected array $configuration;
+
+    protected ?SerializableClosure $thenCallback;
+
+    protected ?SerializableClosure $catchCallback;
+
     public function __construct(
-        protected array $configuration,
-        protected ?Closure $thenCallback = null,
-        protected ?Closure $catchCallback = null
-    ) {}
+        array $configuration,
+        ?Closure $thenCallback = null,
+        ?Closure $catchCallback = null
+    ) {
+        $this->configuration = $this->wrapClosures($configuration);
+        $this->thenCallback = $thenCallback ? new SerializableClosure($thenCallback) : null;
+        $this->catchCallback = $catchCallback ? new SerializableClosure($catchCallback) : null;
+    }
 
     public function handle(): void
     {
@@ -48,7 +59,7 @@ class AsyncAttemptJob implements ShouldQueue
 
     protected function createBuilder(): AttemptBuilder
     {
-        $config = $this->configuration;
+        $config = $this->unwrapClosures($this->configuration);
 
         $builder = new AttemptBuilder(
             $config['callable'],
@@ -67,12 +78,28 @@ class AsyncAttemptJob implements ShouldQueue
             $builder->usingStrategy($config['retryStrategy']);
         }
 
+        if ($config['delayCallback'] !== null) {
+            $builder->delayUsing($config['delayCallback']);
+        }
+
         if ($config['jitter'] > 0) {
             $builder->withJitter($config['jitter']);
         }
 
         if (! empty($config['fallbacks'])) {
             $builder->fallback($config['fallbacks']);
+        }
+
+        foreach ($config['catchHandlers'] as $handler) {
+            if ($handler['class'] !== null) {
+                $builder->catch($handler['class'], $handler['callback']);
+            } elseif ($handler['callback'] !== null) {
+                $builder->catch($handler['callback']);
+            }
+        }
+
+        foreach ($config['finallyCallbacks'] as $callback) {
+            $builder->finally($callback);
         }
 
         if ($config['shouldThrow']) {
@@ -88,5 +115,37 @@ class AsyncAttemptJob implements ShouldQueue
         }
 
         return $builder;
+    }
+
+    /**
+     * Recursively wrap Closures in SerializableClosure for queue serialization.
+     */
+    protected function wrapClosures(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            if ($value instanceof Closure) {
+                $data[$key] = new SerializableClosure($value);
+            } elseif (is_array($value)) {
+                $data[$key] = $this->wrapClosures($value);
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Recursively unwrap SerializableClosures back to Closures.
+     */
+    protected function unwrapClosures(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            if ($value instanceof SerializableClosure) {
+                $data[$key] = $value->getClosure();
+            } elseif (is_array($value)) {
+                $data[$key] = $this->unwrapClosures($value);
+            }
+        }
+
+        return $data;
     }
 }
