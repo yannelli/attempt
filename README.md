@@ -40,19 +40,19 @@
 
 ## Introduction
 
-While building your application, you may encounter operations that can fail due to transient issues like network timeouts, API rate limits, or temporary service unavailability. Rather than letting these failures crash your application or writing repetitive try-catch blocks, Laravel Attempt provides a fluent, composable system for handling retries, fallbacks, and error recovery.
+Network calls fail. APIs time out, rate limits trip, third-party services drop offline for thirty seconds at a time. Attempt is a Laravel package for wrapping operations that might fail, so you can add retries, backoff, and fallbacks without scattering `try`/`catch` blocks all over your code.
 
-Attempt treats error handling as a first-class pipeline concern, allowing you to declaratively define how your application should respond when things go wrong. Whether you need simple retry logic with exponential backoff, complex fallback chains, or integration with Laravel’s native Pipeline, Attempt provides an expressive API that reads like natural language.
+You build an attempt by chaining methods on a builder. It works with closures, invokable classes, action classes, and Laravel pipeline stages. It can also run on the queue when you need it to.
 
 ## Installation
 
-You may install Attempt into your project using the Composer package manager:
+Install with Composer:
 
 ```bash
 composer require yannelli/attempt
 ```
 
-After installing Attempt, you may optionally publish its configuration file using the `vendor:publish` Artisan command:
+If you want to override the defaults, publish the config file:
 
 ```bash
 php artisan vendor:publish --tag="attempt-config"
@@ -62,7 +62,7 @@ php artisan vendor:publish --tag="attempt-config"
 
 ### Basic Usage
 
-The simplest way to use Attempt is to wrap a potentially failing operation with the `try` method. To execute the attempt and retrieve the result, you may call the `thenReturn` method:
+Wrap an operation with `try`, then call `thenReturn` to execute and get the result back:
 
 ```php
 use Yannelli\Attempt\Facades\Attempt;
@@ -70,13 +70,13 @@ use Yannelli\Attempt\Facades\Attempt;
 $result = Attempt::try(fn() => $api->call())->thenReturn();
 ```
 
-If you need to pass input to your callable, you may provide additional arguments to the `try` method:
+Pass arguments to the callable as extra parameters:
 
 ```php
 $result = Attempt::try(MyAction::class, $order, $user)->thenReturn();
 ```
 
-You may also pass an array of callables to the `try` method. When an array is provided, each callable will be executed in order as a fallback chain. If the first callable fails, the second will be attempted, and so on:
+Pass an array of callables and they run in order as a fallback chain. If the first one fails, the second runs, and so on:
 
 ```php
 $result = Attempt::try([
@@ -86,7 +86,7 @@ $result = Attempt::try([
 ], $payload)->thenReturn();
 ```
 
-Attempt provides several methods for executing your attempt and retrieving the result:
+Use any of these methods to run the attempt and get the result back:
 
 |Method                   |Behavior                                      |
 |-------------------------|----------------------------------------------|
@@ -99,7 +99,7 @@ Attempt provides several methods for executing your attempt and retrieving the r
 
 ### Attemptable Classes
 
-For more complex operations, you may create dedicated attemptable classes. These classes should implement the `Attemptable` interface and define a `handle` method that receives the input and returns a result:
+For anything more involved than a closure, create a class that implements `Attemptable` and put the work in `handle`:
 
 ```php
 use Yannelli\Attempt\Contracts\Attemptable;
@@ -115,7 +115,7 @@ class FetchUserData implements Attemptable
 }
 ```
 
-Once you have defined your attemptable class, you may pass its class name to the `try` method:
+Pass the class name to `try`:
 
 ```php
 $userData = Attempt::try(FetchUserData::class, $userId)
@@ -125,7 +125,7 @@ $userData = Attempt::try(FetchUserData::class, $userId)
 
 ### Self-Configuring Classes
 
-Sometimes you may want a class to define its own retry and fallback configuration. To accomplish this, your class may implement both the `Attemptable` and `ConfiguresAttempt` interfaces. The `configureAttempt` method receives an `AttemptBuilder` instance that you may use to define your preferred configuration:
+If you want a class to carry its own retry and fallback config, implement `ConfiguresAttempt` alongside `Attemptable`. The `configureAttempt` method gets an `AttemptBuilder` to set things up:
 
 ```php
 use Yannelli\Attempt\Contracts\Attemptable;
@@ -149,7 +149,7 @@ class ResilientApiCall implements Attemptable, ConfiguresAttempt
 }
 ```
 
-When using a self-configuring class, the configuration is automatically applied:
+The config is applied automatically when you use the class:
 
 ```php
 $result = Attempt::try(ResilientApiCall::class)->thenReturn();
@@ -159,7 +159,7 @@ $result = Attempt::try(ResilientApiCall::class)->thenReturn();
 
 ### Specifying Retry Attempts
 
-By default, Attempt will not retry a failed operation. To enable retries, call the `retry` method and specify how many times the operation should be attempted:
+By default a failed operation isn't retried. Call `retry` with the number of attempts to allow:
 
 ```php
 Attempt::try($callable)
@@ -169,11 +169,11 @@ Attempt::try($callable)
 
 ### Delay Strategies
 
-Often, you will want to wait between retry attempts to give transient issues time to resolve. Attempt provides several strategies for configuring delays between retries.
+You'll usually want to wait between retries so the underlying issue has a chance to clear. There are a few ways to do that.
 
 #### Fixed Delay
 
-To wait a fixed number of milliseconds between all retries, pass an integer to the `delay` method:
+Pass an integer to `delay` for a fixed wait in milliseconds between every retry:
 
 ```php
 Attempt::try($callable)
@@ -184,7 +184,7 @@ Attempt::try($callable)
 
 #### Explicit Delays
 
-If you need different delays for each retry attempt, you may pass an array of millisecond values:
+For different waits on each retry, pass an array of millisecond values:
 
 ```php
 Attempt::try($callable)
@@ -195,7 +195,7 @@ Attempt::try($callable)
 
 #### Exponential Backoff
 
-Exponential backoff progressively increases the delay between retries. This strategy is particularly useful when interacting with rate-limited APIs or overloaded services. The `exponentialBackoff` method accepts a base delay and an optional maximum delay:
+Exponential backoff doubles the wait each retry, which is what you usually want against a rate-limited or overloaded service. `exponentialBackoff` takes a base delay and an optional cap:
 
 ```php
 Attempt::try($callable)
@@ -206,7 +206,7 @@ Attempt::try($callable)
 
 #### Linear Backoff
 
-Linear backoff increases the delay by a fixed increment with each retry:
+Linear backoff adds a fixed increment to the wait on each retry:
 
 ```php
 Attempt::try($callable)
@@ -217,7 +217,7 @@ Attempt::try($callable)
 
 #### Adding Jitter
 
-To prevent multiple failing operations from retrying in lockstep (known as the “thundering herd” problem), you may add randomized jitter to your delays. The `withJitter` method accepts a percentage value that determines how much variance to apply:
+If many clients fail at once and retry on the same schedule, they'll hammer the recovering service in lockstep. This is the "thundering herd" problem. `withJitter` randomizes each delay; the argument is the percent variance to apply:
 
 ```php
 Attempt::try($callable)
@@ -229,7 +229,7 @@ Attempt::try($callable)
 
 #### Custom Delay Functions
 
-For complete control over delay calculation, you may use the `delayUsing` method with a closure that receives the current attempt number and the exception that triggered the retry:
+For full control, pass a closure to `delayUsing`. It receives the current attempt number and the exception that triggered the retry:
 
 ```php
 Attempt::try($callable)
@@ -240,7 +240,7 @@ Attempt::try($callable)
 
 ### Conditional Retries
 
-Sometimes you may only want to retry an operation for specific types of failures. The `retryIf` method accepts a closure that receives the thrown exception and returns a boolean indicating whether the operation should be retried:
+To retry only on certain failures, use `retryIf` with a closure. Return `true` to retry, `false` to give up:
 
 ```php
 Attempt::try($callable)
@@ -253,7 +253,7 @@ Attempt::try($callable)
 
 ### Defining Fallbacks
 
-When an operation fails after exhausting all retries, you may want to execute a fallback operation instead of throwing an exception. Use the `fallback` method to define an alternative callable:
+When all retries are exhausted, you can run a fallback instead of letting the exception propagate. Pass a callable to `fallback`:
 
 ```php
 Attempt::try(PrimaryApi::class)
@@ -263,7 +263,7 @@ Attempt::try(PrimaryApi::class)
 
 ### Fallback Chains
 
-You may define multiple fallbacks that will be tried in order. The first successful fallback wins:
+Pass an array of fallbacks and they're tried in order. The first one to succeed wins:
 
 ```php
 Attempt::try(PrimaryApi::class)
@@ -275,7 +275,7 @@ Attempt::try(PrimaryApi::class)
     ->thenReturn();
 ```
 
-For a more expressive syntax, you may chain multiple `orFallback` calls:
+Or chain `orFallback` calls if you prefer:
 
 ```php
 Attempt::try(PrimaryApi::class)
@@ -286,7 +286,7 @@ Attempt::try(PrimaryApi::class)
 
 ### The Fallbackable Interface
 
-For fallback classes that need access to the original exception, implement the `Fallbackable` interface. This interface defines a `handleFallback` method that receives both the exception and the original input:
+If your fallback class needs the original exception (for example, to log a different message based on the failure type), implement `Fallbackable`. The `handleFallback` method receives the exception and the original input:
 
 ```php
 use Yannelli\Attempt\Contracts\Fallbackable;
@@ -312,7 +312,7 @@ class ApiErrorFallback implements Fallbackable
 
 ### Catching Exceptions
 
-Attempt allows you to register exception handlers that will be invoked when specific exceptions occur. You may catch specific exception types or all exceptions:
+Register exception handlers with `catch`. You can target specific exception classes or catch everything:
 
 ```php
 // Catch specific exceptions
@@ -329,7 +329,7 @@ Attempt::try($callable)
 
 ### Re-throwing Exceptions
 
-If you want to execute a handler but still throw the exception afterward, chain the `throw` method:
+To run the handler and still rethrow afterward, chain `throw`:
 
 ```php
 Attempt::try($callable)
@@ -340,7 +340,7 @@ Attempt::try($callable)
 
 ### Suppressing Exceptions
 
-To suppress all exceptions and return `null` on failure, use the `quiet` method:
+To swallow exceptions entirely and return `null` on failure, use `quiet`:
 
 ```php
 Attempt::try($callable)
@@ -350,7 +350,7 @@ Attempt::try($callable)
 
 ## Lifecycle Hooks
 
-Attempt provides several hooks that allow you to execute code at specific points during the attempt lifecycle:
+Hook into different points of the attempt lifecycle:
 
 ```php
 Attempt::try($callable)
@@ -364,7 +364,7 @@ Attempt::try($callable)
 
 ## Conditional Execution
 
-You may conditionally execute an attempt using the `when` and `unless` methods:
+Skip the attempt entirely with `when` and `unless`:
 
 ```php
 // Only execute if condition is true
@@ -387,7 +387,7 @@ Attempt::try($callable)
 
 ### Pipeline Attempts
 
-Attempt integrates seamlessly with Laravel’s Pipeline. Use the `pipeline` method to execute a series of stages with built-in retry and fallback capabilities:
+Attempt works with Laravel's Pipeline. Use `pipeline` to run stages with retry and fallback support:
 
 ```php
 $result = Attempt::pipeline([
@@ -402,7 +402,7 @@ $result = Attempt::pipeline([
 
 ### Using AttemptPipe
 
-You may also use `AttemptPipe` within a native Laravel Pipeline to wrap individual stages with retry logic:
+Or use `AttemptPipe` inside a native Laravel pipeline to wrap a single stage with retry logic, leaving the rest of the pipeline alone:
 
 ```php
 use Illuminate\Support\Facades\Pipeline;
@@ -422,7 +422,7 @@ $result = Pipeline::send($data)
 
 ### Running Concurrent Attempts
 
-When you need to execute multiple operations simultaneously, use the `concurrent` method. All operations will run in parallel, and you will receive an array of results:
+Use `concurrent` to run multiple operations in parallel. You get back an array of results:
 
 ```php
 $concurrent = Attempt::concurrent([
@@ -446,7 +446,7 @@ $values = Attempt::concurrent([...])->thenReturn();
 
 ### Racing Attempts
 
-When you need the result of the first successful operation, use the `race` method. The first operation to succeed wins, and other operations are abandoned:
+Use `race` when you only care about the first successful result. As soon as one operation succeeds the rest are abandoned:
 
 ```php
 $result = Attempt::race([
@@ -458,7 +458,7 @@ $result = Attempt::race([
 
 ## Async Execution
 
-For long-running operations, you may dispatch an attempt to run asynchronously on the queue:
+Dispatch long-running attempts to the queue:
 
 ```php
 Attempt::try(LongRunningTask::class, $data)
@@ -470,7 +470,7 @@ Attempt::try(LongRunningTask::class, $data)
     ->dispatch();
 ```
 
-If you need to execute the attempt synchronously instead (bypassing the queue), you may use the `await` method:
+To run synchronously and bypass the queue, use `await`:
 
 ```php
 $result = Attempt::try(LongRunningTask::class, $data)
@@ -483,7 +483,7 @@ $result = Attempt::try(LongRunningTask::class, $data)
 
 ### The AttemptResult Object
 
-When you call the `run` method instead of `thenReturn`, you receive an `AttemptResult` object that provides detailed information about the attempt:
+`run` returns an `AttemptResult` instead of the bare value, with details about what happened:
 
 ```php
 $result = Attempt::try($callable)->run();
@@ -501,7 +501,7 @@ $result->resolvedBy(); // string - 'primary', 'retry:2', 'fallback:ClassName'
 
 ### Monadic Operations
 
-The `AttemptResult` object supports monadic operations for functional-style programming:
+`AttemptResult` also supports a few monadic-style helpers:
 
 ```php
 $result->map(fn($value) => transform($value));
@@ -513,7 +513,7 @@ $result->onFailure(fn($e) => handleError($e));
 
 ## Events
 
-Attempt dispatches events throughout the attempt lifecycle, allowing you to hook into various stages for logging, monitoring, or other purposes:
+Attempt dispatches events you can listen to for logging, metrics, or anything else:
 
 |Event              |When Fired                          |
 |-------------------|------------------------------------|
@@ -524,7 +524,7 @@ Attempt dispatches events throughout the attempt lifecycle, allowing you to hook
 |`FallbackTriggered`|When a fallback is tried            |
 |`AllAttemptsFailed`|When all attempts and fallbacks fail|
 
-If you need to disable events for a specific attempt, use the `withoutEvents` method:
+To disable events for a single attempt, use `withoutEvents`:
 
 ```php
 Attempt::try($callable)
@@ -534,7 +534,7 @@ Attempt::try($callable)
 
 ## Testing
 
-Attempt includes a convenient fake implementation for testing. Use the `fake` method to replace the Attempt facade with a test double:
+Attempt ships with a fake for tests. Replace the facade with `Attempt::fake()` and queue up the responses you want:
 
 ```php
 use Yannelli\Attempt\Facades\Attempt;
@@ -568,7 +568,7 @@ it('uses fallback when all retries fail', function () {
 });
 ```
 
-To run the package’s test suite:
+To run the package's own test suite:
 
 ```bash
 composer test
@@ -576,7 +576,7 @@ composer test
 
 ## Configuration
 
-The published configuration file (`config/attempt.php`) allows you to customize default behaviors:
+The published config file (`config/attempt.php`) holds the default behaviors:
 
 ```php
 return [
