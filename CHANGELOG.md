@@ -2,6 +2,12 @@
 
 All notable changes to `yannelli/attempt` will be documented in this file.
 
+## Unreleased
+
+### Improvements
+
+- **Dependencies** — normalized `laravel/pint` and `nunomaduro/collision` version constraints (dropped literal `v` prefix) and bumped their lower bounds to the latest patch releases (`^1.29.1` and `^8.9.4`).
+
 ## v1.0.0 - 2026-03-14
 
 ### Breaking Changes
