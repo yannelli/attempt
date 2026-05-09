@@ -2,7 +2,7 @@
 
 All notable changes to `yannelli/attempt` will be documented in this file.
 
-## Unreleased
+## v1.0.1 - 2026-05-09
 
 ### Improvements
 
