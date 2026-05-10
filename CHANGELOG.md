@@ -2,6 +2,12 @@
 
 All notable changes to `yannelli/attempt` will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- **Laravel 13 support** — `illuminate/*` constraints widened to `^12.0|^13.0` and `orchestra/testbench` to `^10.0|^11.0`. CI now exercises the test suite on both Laravel 12 and Laravel 13 against PHP 8.4.
+
 ## v1.0.1 - 2026-05-09
 
 ### Improvements
