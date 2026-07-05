@@ -2,6 +2,17 @@
 
 All notable changes to `yannelli/attempt` will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- **Laravel 13 support** — widened all `illuminate/*` constraints to `^12.0 || ^13.0` and `orchestra/testbench` to `^10.0 || ^11.0`. Laravel 12 remains fully supported.
+
+### Improvements
+
+- **Upgraded the test toolchain to Pest 4** — bumped `pestphp/pest`, `pestphp/pest-plugin-arch`, and `pestphp/pest-plugin-laravel` to `^4.0` (PHPUnit 12), which is required for `orchestra/testbench` 11 / Laravel 13 compatibility. No public API changes.
+- **CI matrix updated** — the suite now runs against both Laravel 12 (testbench 10) and Laravel 13 (testbench 11) on PHP 8.4.
+
 ## v1.0.1 - 2026-05-09
 
 ### Improvements
