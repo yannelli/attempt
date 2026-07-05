@@ -2,6 +2,14 @@
 
 All notable changes to `yannelli/attempt` will be documented in this file.
 
+## v1.1.0 - 2026-07-05
+
+### What's Changed
+
+* feat: add Laravel 13 support by @yannelli in https://github.com/yannelli/attempt/pull/10
+
+**Full Changelog**: https://github.com/yannelli/attempt/compare/v1.0.1...v1.1.0
+
 ## Unreleased
 
 ### Added
