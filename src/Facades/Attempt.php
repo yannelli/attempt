@@ -16,6 +16,7 @@ use Yannelli\Attempt\Testing\AttemptFake;
 
 /**
  * @method static AttemptBuilder try(Closure|string|array|Collection $callable, mixed ...$input)
+ * @method static AttemptBuilder ai(Closure|string|array|Collection $callable, mixed ...$input)
  * @method static PipelineAttemptBuilder pipeline(array|Collection $pipes = [])
  * @method static ConcurrentAttemptBuilder concurrent(array|Collection $attempts = [])
  * @method static RaceAttemptBuilder race(array|Collection $attempts = [])

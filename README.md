@@ -1,5 +1,9 @@
 # Attempt
 
+<p align="center">
+    <img src="art/banner.png" alt="Attempt — Retry. Fallback. Recover." width="720">
+</p>
+
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/yannelli/attempt.svg?style=flat-square)](https://packagist.org/packages/yannelli/attempt)
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/yannelli/attempt/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/yannelli/attempt/actions?query=workflow%3Arun-tests+branch%3Amain)
 [![Total Downloads](https://img.shields.io/packagist/dt/yannelli/attempt.svg?style=flat-square)](https://packagist.org/packages/yannelli/attempt)
@@ -31,6 +35,10 @@
   - [Running Concurrent Attempts](#running-concurrent-attempts)
   - [Racing Attempts](#racing-attempts)
 - [Async Execution](#async-execution)
+- [Laravel AI Integration](#laravel-ai-integration)
+  - [Retrying AI Requests](#retrying-ai-requests)
+  - [Per-Provider Retries with Agent Middleware](#per-provider-retries-with-agent-middleware)
+  - [Retry Safety](#retry-safety)
 - [Working with Results](#working-with-results)
   - [The AttemptResult Object](#the-attemptresult-object)
   - [Monadic Operations](#monadic-operations)
@@ -480,6 +488,109 @@ $result = Attempt::try(LongRunningTask::class, $data)
     ->async()
     ->await(); // Runs synchronously, returns AttemptResult
 ```
+
+## Laravel AI Integration
+
+Attempt provides first-class integration with the official [Laravel AI SDK](https://github.com/laravel/ai). While the SDK offers provider failover out of the box, it does not retry failed requests. Attempt fills this gap with retry policies tuned specifically for AI workloads, giving you three composable layers of resilience: retry each provider with backoff, fail over across providers, and finally fall back to a cached or canned value.
+
+To get started, install the Laravel AI SDK alongside Attempt:
+
+```bash
+composer require laravel/ai
+```
+
+### Retrying AI Requests
+
+The `ai` method creates an attempt that is pre-configured for AI requests. Only transient failures will be retried: rate limits, provider overloads, connection errors, and retryable HTTP statuses (408, 429, and 5xx). Permanent failures such as insufficient credits, unknown tools, invalid requests, and malformed responses fail immediately:
+
+```php
+use Yannelli\Attempt\Facades\Attempt;
+
+$response = Attempt::ai(fn () => SupportAgent::make()->prompt($question))
+    ->retry(3)
+    ->thenReturn();
+```
+
+When a provider supplies a `Retry-After` header with a rate limit response, Attempt will honor it (capped at 30 seconds). Otherwise, delays are calculated using decorrelated jitter starting at 500 milliseconds. You may override the delay behavior using any of the standard delay methods:
+
+```php
+Attempt::ai(fn () => SupportAgent::make()->prompt($question))
+    ->retry(3)
+    ->delayUsing(fn (int $attempt) => $attempt * 1000)
+    ->thenReturn();
+```
+
+Because `ai` returns a standard attempt builder, the full Attempt API remains available. For example, you may combine AI retries with the SDK's provider failover and a non-AI fallback:
+
+```php
+$response = Attempt::ai(fn () => SupportAgent::make()->prompt(
+    $question,
+    provider: ['openai-primary', 'anthropic-backup'],
+))
+    ->retry(2)
+    ->fallback(fn () => CannedResponse::for($question))
+    ->thenReturn();
+```
+
+The `ai` method works equally well for the SDK's other operations, such as image generation and embeddings, since they throw the same transient exception types:
+
+```php
+use Laravel\Ai\Embeddings;
+
+$embeddings = Attempt::ai(fn () => Embeddings::for($chunks)->generate())
+    ->retry(3)
+    ->thenReturn();
+```
+
+If you need to customize retry classification, the underlying policy is exposed as `Yannelli\Attempt\Ai\AiRetryPolicy`, and the standard `retryIf` method may be used to replace it entirely.
+
+### Per-Provider Retries with Agent Middleware
+
+The SDK's provider failover moves to the next provider on the first failure. If you would rather retry each provider before failing over, add the `RetryAiRequests` middleware to your agent. Since agent middleware runs once per provider in the failover list, each provider will be retried independently:
+
+```php
+use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\HasMiddleware;
+use Laravel\Ai\Promptable;
+use Yannelli\Attempt\Ai\RetryAiRequests;
+
+class SupportAgent implements Agent, HasMiddleware
+{
+    use Promptable;
+
+    public function instructions(): string
+    {
+        return 'Answer questions about our product accurately and concisely.';
+    }
+
+    public function middleware(): array
+    {
+        return [
+            RetryAiRequests::times(2),
+        ];
+    }
+}
+```
+
+After exhausting its retries, the middleware re-throws the original exception so the SDK's failover proceeds normally. You may customize the underlying attempt using the `configureUsing` method:
+
+```php
+RetryAiRequests::times(2)->configureUsing(
+    fn ($attempt) => $attempt
+        ->exponentialBackoff(base: 250, max: 10000)
+        ->onRetry(fn ($context, $e) => Log::warning('Retrying AI request', [
+            'attempt' => $context->attemptNumber,
+        ]))
+);
+```
+
+### Retry Safety
+
+A few caveats apply when retrying AI operations:
+
+- **Streaming**: streamed responses are lazy, so failures that occur while iterating a stream happen outside the attempt and will not be retried. Never re-issue a streamed request after output has reached the user, as this may duplicate or change previously delivered content.
+- **Tool-using agents**: a failed prompt may have already executed tools during earlier generation steps. Retrying the prompt will run those tools again, so ensure your tools are idempotent before enabling retries on tool-using agents.
+- **Insufficient credits**: the SDK treats insufficient credits as a failover condition, but retrying the same provider will not resolve it, so Attempt never retries these failures. Provider failover remains the correct remedy.
 
 ## Working with Results
 

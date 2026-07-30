@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Install PHP 8.4 + Composer (Debian bookworm) and package dependencies.
+
+if ! command -v php >/dev/null 2>&1; then
+    sudo curl -fsSL https://packages.sury.org/php/apt.gpg -o /usr/share/keyrings/sury-php.gpg
+    echo "deb [signed-by=/usr/share/keyrings/sury-php.gpg] https://packages.sury.org/php/ bookworm main" |
+        sudo tee /etc/apt/sources.list.d/sury-php.list >/dev/null
+    sudo apt-get update -qq
+    sudo apt-get install -y -qq php8.4-cli php8.4-mbstring php8.4-xml php8.4-curl php8.4-zip php8.4-sqlite3
+fi
+
+if ! command -v composer >/dev/null 2>&1; then
+    curl -fsSL https://getcomposer.org/installer | php -- --install-dir=/tmp --filename=composer
+    sudo mv /tmp/composer /usr/local/bin/composer
+fi
+
+composer install --no-interaction
