@@ -1,7 +1,7 @@
 # Attempt
 
 <p align="center">
-    <img src="art/icon.png" alt="Attempt icon" width="240">
+    <img src="art/banner.png" alt="Attempt — Retry. Fallback. Recover." width="720">
 </p>
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/yannelli/attempt.svg?style=flat-square)](https://packagist.org/packages/yannelli/attempt)
