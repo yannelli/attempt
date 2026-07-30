@@ -7,6 +7,7 @@ namespace Yannelli\Attempt;
 use Closure;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Collection;
+use Yannelli\Attempt\Ai\AiRetryPolicy;
 use Yannelli\Attempt\Builders\ConcurrentAttemptBuilder;
 use Yannelli\Attempt\Builders\PipelineAttemptBuilder;
 use Yannelli\Attempt\Builders\RaceAttemptBuilder;
@@ -35,6 +36,23 @@ class AttemptManager
         }
 
         return new AttemptBuilder($callable, ...$input);
+    }
+
+    /**
+     * Create an attempt builder tuned for Laravel AI SDK requests.
+     *
+     * Retries only transient AI failures (rate limits, provider overload,
+     * connection errors) and honors provider "Retry-After" hints when
+     * calculating delays between retries.
+     *
+     * @param  Closure|string|array|Collection  $callable  The callable(s) to attempt
+     * @param  mixed  ...$input  Optional input to pass to the callable
+     */
+    public function ai(
+        Closure|string|array|Collection $callable,
+        mixed ...$input
+    ): AttemptBuilder {
+        return AiRetryPolicy::applyTo($this->try($callable, ...$input));
     }
 
     /**
