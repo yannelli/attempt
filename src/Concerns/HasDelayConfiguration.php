@@ -27,7 +27,7 @@ trait HasDelayConfiguration
      */
     public function delay(int|array $milliseconds): static
     {
-        $this->delay = $milliseconds;
+        $this->delay = is_array($milliseconds) ? array_values($milliseconds) : $milliseconds;
 
         return $this;
     }
@@ -40,7 +40,10 @@ trait HasDelayConfiguration
         $config = config("attempt.backoff_strategies.{$strategy}", []);
 
         if (! empty($config['class'])) {
-            $this->retryStrategy = app($config['class'], array_merge($config, $options));
+            $class = $config['class'];
+            unset($config['class']);
+
+            $this->retryStrategy = app($class, array_merge($config, $options));
         }
 
         return $this;

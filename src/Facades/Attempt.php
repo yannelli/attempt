@@ -22,6 +22,14 @@ use Yannelli\Attempt\Testing\AttemptFake;
  * @method static AttemptFake fake()
  * @method static bool isFaked()
  * @method static void resetFake()
+ * @method static void assertAttempted(string $callable)
+ * @method static void assertAttemptedTimes(string $callable, int $times)
+ * @method static void assertFallbackUsed(string $callable)
+ * @method static void assertNeverAttempted(string $callable)
+ * @method static void assertNothingAttempted()
+ * @method static void assertAttemptCount(int $count)
+ * @method static void assertSucceeded(string $callable)
+ * @method static void assertFailed(string $callable)
  *
  * @see AttemptManager
  */

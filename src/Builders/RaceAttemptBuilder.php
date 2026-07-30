@@ -112,11 +112,9 @@ class RaceAttemptBuilder
      */
     protected function normalizeAttempt(mixed $attempt): AttemptBuilder
     {
-        if ($attempt instanceof AttemptBuilder) {
-            return $attempt;
-        }
-
-        $builder = new AttemptBuilder($attempt);
+        $builder = $attempt instanceof AttemptBuilder
+            ? $attempt
+            : new AttemptBuilder($attempt);
 
         if ($this->maxRetries > 0) {
             $builder->retry($this->maxRetries);

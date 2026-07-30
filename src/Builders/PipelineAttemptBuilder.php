@@ -143,6 +143,10 @@ class PipelineAttemptBuilder
             $builder->usingStrategy($this->retryStrategy);
         }
 
+        if ($this->delayCallback !== null) {
+            $builder->delayUsing($this->delayCallback);
+        }
+
         if ($this->jitter > 0) {
             $builder->withJitter($this->jitter);
         }
@@ -152,6 +156,26 @@ class PipelineAttemptBuilder
             $builder->fallback($this->fallbacks);
         }
 
+        foreach ($this->catchHandlers as $handler) {
+            if ($handler['class'] !== null) {
+                $builder->catch($handler['class'], $handler['callback']);
+            } elseif ($handler['callback'] !== null) {
+                $builder->catch($handler['callback']);
+            }
+        }
+
+        if ($this->exceptionHandlerClass !== null) {
+            $builder->setExceptionHandler($this->exceptionHandlerClass);
+        }
+
+        if ($this->retryIf !== null) {
+            $builder->retryIf($this->retryIf);
+        }
+
+        if ($this->retryUnless !== null) {
+            $builder->retryUnless($this->retryUnless);
+        }
+
         // Apply lifecycle hooks
         foreach ($this->finallyCallbacks as $callback) {
             $builder->finally($callback);
@@ -159,6 +183,14 @@ class PipelineAttemptBuilder
 
         foreach ($this->deferCallbacks as $callback) {
             $builder->defer($callback);
+        }
+
+        foreach ($this->onRetryCallbacks as $callback) {
+            $builder->onRetry($callback);
+        }
+
+        foreach ($this->onFallbackCallbacks as $callback) {
+            $builder->onFallback($callback);
         }
 
         foreach ($this->onSuccessCallbacks as $callback) {

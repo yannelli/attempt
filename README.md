@@ -46,6 +46,8 @@ Attempt treats error handling as a first-class pipeline concern, allowing you to
 
 ## Installation
 
+Attempt supports PHP 8.4 or newer and Laravel 12 or 13.
+
 You may install Attempt into your project using the Composer package manager:
 
 ```bash
@@ -138,7 +140,7 @@ class ResilientApiCall implements Attemptable, ConfiguresAttempt
     {
         $attempt
             ->retry(3)
-            ->exponentialBackoff(100, 5000)
+            ->exponentialBackoff(base: 100, max: 5000)
             ->withJitter(0.1);
     }
 
@@ -159,7 +161,7 @@ $result = Attempt::try(ResilientApiCall::class)->thenReturn();
 
 ### Specifying Retry Attempts
 
-By default, Attempt will not retry a failed operation. To enable retries, call the `retry` method and specify how many times the operation should be attempted:
+By default, Attempt will not retry a failed operation. To enable retries, call the `retry` method and specify how many retries are allowed in addition to the initial attempt. For example, `retry(3)` permits up to four total executions:
 
 ```php
 Attempt::try($callable)
@@ -422,7 +424,7 @@ $result = Pipeline::send($data)
 
 ### Running Concurrent Attempts
 
-When you need to execute multiple operations simultaneously, use the `concurrent` method. All operations will run in parallel, and you will receive an array of results:
+Use the `concurrent` method to execute a group of independent attempts and receive an array of results. Attempts currently execute in declaration order in the same process; this API groups results but does not provide parallel execution:
 
 ```php
 $concurrent = Attempt::concurrent([
@@ -446,7 +448,7 @@ $values = Attempt::concurrent([...])->thenReturn();
 
 ### Racing Attempts
 
-When you need the result of the first successful operation, use the `race` method. The first operation to succeed wins, and other operations are abandoned:
+Use the `race` method to try operations in declaration order until one succeeds. Remaining operations are skipped after the first success:
 
 ```php
 $result = Attempt::race([
@@ -576,17 +578,10 @@ composer test
 
 ## Configuration
 
-The published configuration file (`config/attempt.php`) allows you to customize default behaviors:
+The published configuration file (`config/attempt.php`) allows you to customize named backoff strategies, queue behavior, events, and global exception retry rules:
 
 ```php
 return [
-    'defaults' => [
-        'max_retries' => 3,
-        'delay' => 100,
-        'backoff' => 'exponential',
-        'jitter' => 0.1,
-    ],
-
     'backoff_strategies' => [
         'exponential' => [...],
         'linear' => [...],

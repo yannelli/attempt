@@ -67,6 +67,33 @@ it('supports fallback on pipeline', function () {
     expect($result->value())->toBe('fallback value');
 });
 
+it('forwards retry predicates and lifecycle hooks', function () {
+    $attempts = 0;
+    $retries = 0;
+    $caught = 0;
+
+    $result = Attempt::pipeline([
+        function () use (&$attempts) {
+            $attempts++;
+            throw new RuntimeException('pipeline failed');
+        },
+    ])
+        ->retry(3)
+        ->retryIf(fn () => false)
+        ->catch(function () use (&$caught) {
+            $caught++;
+        })
+        ->onRetry(function () use (&$retries) {
+            $retries++;
+        })
+        ->run();
+
+    expect($result->failed())->toBeTrue()
+        ->and($attempts)->toBe(1)
+        ->and($caught)->toBe(1)
+        ->and($retries)->toBe(0);
+});
+
 it('can use AttemptPipe in native Laravel pipeline', function () {
     $attempts = 0;
 

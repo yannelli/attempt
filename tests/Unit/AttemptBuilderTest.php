@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Yannelli\Attempt\AttemptBuilder;
 use Yannelli\Attempt\AttemptResult;
+use Yannelli\Attempt\Contracts\Attemptable;
+use Yannelli\Attempt\Contracts\ConfiguresAttempt;
 use Yannelli\Attempt\Tests\Fixtures\InvokableCallable;
 use Yannelli\Attempt\Tests\Fixtures\TestAttemptable;
 
@@ -279,6 +281,113 @@ it('supports array of callables as fallback chain', function () {
     expect($result->succeeded())->toBeTrue();
     expect($result->value())->toBe('second succeeded');
     expect($calls)->toBe(['first', 'second']);
+});
+
+it('supports PHP array callables', function () {
+    $callable = new class
+    {
+        public function execute(string $value): string
+        {
+            return strtoupper($value);
+        }
+    };
+
+    expect(AttemptBuilder::make([$callable, 'execute'], 'hello')->thenReturn())
+        ->toBe('HELLO');
+});
+
+it('supports PHP array callables as fallbacks', function () {
+    $fallback = new class
+    {
+        public function execute(): string
+        {
+            return 'recovered';
+        }
+    };
+
+    $result = AttemptBuilder::make(fn () => throw new RuntimeException('primary'))
+        ->fallback([$fallback, 'execute'])
+        ->run();
+
+    expect($result->value())->toBe('recovered');
+});
+
+it('reports the final fallback exception', function () {
+    $result = AttemptBuilder::make(fn () => throw new RuntimeException('primary'))
+        ->fallback(fn () => throw new LogicException('fallback'))
+        ->run();
+
+    expect($result->exception())
+        ->toBeInstanceOf(LogicException::class)
+        ->getMessage()->toBe('fallback');
+});
+
+it('applies self configuration once before retrying', function () {
+    $callable = new class implements Attemptable, ConfiguresAttempt
+    {
+        public int $attempts = 0;
+
+        public int $configurations = 0;
+
+        public function configureAttempt(AttemptBuilder $attempt): void
+        {
+            $this->configurations++;
+            $attempt->retry(1);
+        }
+
+        public function handle(mixed ...$input): mixed
+        {
+            if (++$this->attempts === 1) {
+                throw new RuntimeException('retry me');
+            }
+
+            return 'success';
+        }
+    };
+
+    app()->instance($callable::class, $callable);
+
+    $result = AttemptBuilder::make($callable::class)->run();
+
+    expect($result->value())->toBe('success')
+        ->and($callable->attempts)->toBe(2)
+        ->and($callable->configurations)->toBe(1);
+});
+
+it('routes callable resolution failures through fallbacks and finally hooks', function () {
+    $finallyCalled = false;
+    $callable = new class implements Attemptable, ConfiguresAttempt
+    {
+        public function configureAttempt(AttemptBuilder $attempt): void
+        {
+            throw new RuntimeException('configuration failed');
+        }
+
+        public function handle(mixed ...$input): mixed
+        {
+            return 'unreachable';
+        }
+    };
+
+    app()->instance($callable::class, $callable);
+
+    $result = AttemptBuilder::make($callable::class)
+        ->fallback(fn () => 'recovered')
+        ->finally(function () use (&$finallyCalled) {
+            $finallyCalled = true;
+        })
+        ->run();
+
+    expect($result->value())->toBe('recovered')
+        ->and($finallyCalled)->toBeTrue();
+});
+
+it('normalizes sparse delay arrays', function () {
+    $configuration = AttemptBuilder::make(fn () => null)
+        ->delay([1 => 100, 3 => 300])
+        ->getConfiguration();
+
+    expect($configuration['delay'])->toBe([100, 300]);
 });
 
 it('caches result and does not re-execute', function () {

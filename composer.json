@@ -19,10 +19,12 @@
     ],
     "require": {
         "php": "^8.4",
+        "illuminate/bus": "^12.0 || ^13.0",
         "illuminate/contracts": "^12.0 || ^13.0",
         "illuminate/pipeline": "^12.0 || ^13.0",
         "illuminate/queue": "^12.0 || ^13.0",
         "illuminate/support": "^12.0 || ^13.0",
+        "laravel/serializable-closure": "^2.0",
         "spatie/laravel-package-tools": "^1.93.0"
     },
     "require-dev": {
@@ -47,8 +49,10 @@
         "post-autoload-dump": "@composer run prepare",
         "prepare": "@php vendor/bin/testbench package:discover --ansi",
         "test": "vendor/bin/pest",
+        "test:ci": "vendor/bin/pest --ci",
         "test-coverage": "vendor/bin/pest --coverage",
-        "format": "vendor/bin/pint"
+        "format": "vendor/bin/pint",
+        "lint": "vendor/bin/pint --test"
     },
     "config": {
         "sort-packages": true,
@@ -66,6 +70,5 @@
             }
         }
     },
-    "minimum-stability": "dev",
     "prefer-stable": true
 }

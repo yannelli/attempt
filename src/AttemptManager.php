@@ -106,4 +106,56 @@ class AttemptManager
     {
         return $this->fake;
     }
+
+    public function assertAttempted(string $callable): void
+    {
+        $this->requireFake()->assertAttempted($callable);
+    }
+
+    public function assertAttemptedTimes(string $callable, int $times): void
+    {
+        $this->requireFake()->assertAttemptedTimes($callable, $times);
+    }
+
+    public function assertFallbackUsed(string $callable): void
+    {
+        $this->requireFake()->assertFallbackUsed($callable);
+    }
+
+    public function assertNeverAttempted(string $callable): void
+    {
+        $this->requireFake()->assertNeverAttempted($callable);
+    }
+
+    public function assertNothingAttempted(): void
+    {
+        $this->requireFake()->assertNothingAttempted();
+    }
+
+    public function assertAttemptCount(int $count): void
+    {
+        $this->requireFake()->assertAttemptCount($count);
+    }
+
+    public function assertSucceeded(string $callable): void
+    {
+        $this->requireFake()->assertSucceeded($callable);
+    }
+
+    public function assertFailed(string $callable): void
+    {
+        $this->requireFake()->assertFailed($callable);
+    }
+
+    /**
+     * Get the active fake or fail with a useful testing error.
+     */
+    protected function requireFake(): AttemptFake
+    {
+        if ($this->fake === null) {
+            throw new \LogicException('Attempt must be faked before making assertions.');
+        }
+
+        return $this->fake;
+    }
 }

@@ -3,7 +3,12 @@
 declare(strict_types=1);
 
 use Yannelli\Attempt\AttemptResult;
+use Yannelli\Attempt\Builders\AsyncAttemptJob;
 use Yannelli\Attempt\Facades\Attempt;
+use Yannelli\Attempt\Strategies\DecorrelatedJitter;
+use Yannelli\Attempt\Strategies\ExponentialBackoff;
+use Yannelli\Attempt\Strategies\FibonacciBackoff;
+use Yannelli\Attempt\Strategies\LinearBackoff;
 use Yannelli\Attempt\Tests\Fixtures\InvokableCallable;
 use Yannelli\Attempt\Tests\Fixtures\TestAttemptable;
 
@@ -105,3 +110,47 @@ it('supports array of callables as primary', function () {
     expect($result->value())->toBe('second success');
     expect($calls)->toBe(['first', 'second']);
 });
+
+it('supports facade assertions on a fake', function () {
+    Attempt::fake()->forceResult(TestAttemptable::class, 'fake result');
+
+    Attempt::try(TestAttemptable::class)->run();
+
+    Attempt::assertAttemptedTimes(TestAttemptable::class, 1);
+    Attempt::assertSucceeded(TestAttemptable::class);
+});
+
+it('does not count an unexecuted fake builder as an attempt', function () {
+    Attempt::fake();
+    Attempt::try(TestAttemptable::class);
+
+    Attempt::assertNeverAttempted(TestAttemptable::class);
+    Attempt::assertNothingAttempted();
+    Attempt::assertAttemptCount(0);
+});
+
+it('preserves async timeout and callback failures', function () {
+    $job = new AsyncAttemptJob(
+        Attempt::try(fn () => 'success')->getConfiguration(),
+        fn () => throw new RuntimeException('callback failed'),
+        fn () => null,
+        15
+    );
+
+    expect($job->timeout)->toBe(15)
+        ->and(fn () => $job->handle())
+        ->toThrow(RuntimeException::class, 'callback failed');
+});
+
+it('resolves configured backoff strategies', function (string $name, string $strategy) {
+    $configuration = Attempt::try(fn () => null)
+        ->backoff($name)
+        ->getConfiguration();
+
+    expect($configuration['retryStrategy'])->toBeInstanceOf($strategy);
+})->with([
+    'exponential' => ['exponential', ExponentialBackoff::class],
+    'linear' => ['linear', LinearBackoff::class],
+    'fibonacci' => ['fibonacci', FibonacciBackoff::class],
+    'decorrelated jitter' => ['decorrelated_jitter', DecorrelatedJitter::class],
+]);
