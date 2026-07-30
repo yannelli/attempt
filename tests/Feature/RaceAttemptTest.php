@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Yannelli\Attempt\AttemptBuilder;
 use Yannelli\Attempt\Facades\Attempt;
 
 it('returns first successful result', function () {
@@ -87,4 +88,20 @@ it('returns first success even if later ones would succeed', function () {
 
     expect($result->value())->toBe('first');
     expect($executed)->toBe([1]); // Only first was executed
+});
+
+it('applies aggregate retry settings to supplied builders', function () {
+    $attempts = 0;
+    $attempt = AttemptBuilder::make(function () use (&$attempts) {
+        if (++$attempts === 1) {
+            throw new RuntimeException('retry me');
+        }
+
+        return 'success';
+    });
+
+    $result = Attempt::race([$attempt])->retry(1)->run();
+
+    expect($result->value())->toBe('success')
+        ->and($attempts)->toBe(2);
 });

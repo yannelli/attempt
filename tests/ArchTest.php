@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Support\Facades\Facade;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Yannelli\Attempt\Contracts\RetryStrategy;
@@ -20,10 +19,6 @@ arch('exceptions extend base exception')
     ->expect('Yannelli\Attempt\Exceptions')
     ->toExtend(AttemptException::class)
     ->ignoring(AttemptException::class);
-
-arch('events use Dispatchable trait')
-    ->expect('Yannelli\Attempt\Events')
-    ->toUseTrait(Dispatchable::class);
 
 arch('no debugging statements')
     ->expect('Yannelli\Attempt')

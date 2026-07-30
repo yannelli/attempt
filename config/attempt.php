@@ -8,18 +8,6 @@ use Yannelli\Attempt\Strategies\LinearBackoff;
 return [
     /*
     |--------------------------------------------------------------------------
-    | Default Retry Settings
-    |--------------------------------------------------------------------------
-    */
-    'defaults' => [
-        'max_retries' => 3,
-        'delay' => 100, // milliseconds
-        'backoff' => 'exponential',
-        'jitter' => 0.1, // 10% randomization
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | Backoff Strategies
     |--------------------------------------------------------------------------
     */
@@ -28,21 +16,23 @@ return [
             'class' => ExponentialBackoff::class,
             'base' => 100,
             'multiplier' => 2.0,
-            'max' => 30000,
+            'maxDelay' => 30000,
         ],
         'linear' => [
             'class' => LinearBackoff::class,
             'base' => 100,
             'increment' => 100,
+            'maxDelay' => 30000,
         ],
         'fibonacci' => [
             'class' => FibonacciBackoff::class,
             'base' => 100,
+            'maxDelay' => 30000,
         ],
         'decorrelated_jitter' => [
             'class' => DecorrelatedJitter::class,
             'base' => 100,
-            'max' => 30000,
+            'maxDelay' => 30000,
         ],
     ],
 

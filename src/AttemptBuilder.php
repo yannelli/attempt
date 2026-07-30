@@ -269,6 +269,25 @@ class AttemptBuilder
             }
         }
 
+        $callables = $this->normalizeCallables();
+        $primaryCallable = array_shift($callables);
+
+        if ($primaryCallable === null) {
+            throw new InvalidArgumentException('At least one callable must be provided');
+        }
+
+        $this->fallbacks = array_merge($callables, $this->fallbacks);
+
+        // Resolve self-configuring callables before retry limits and context are created.
+        // Reuse the resolved callable so configuration is not applied again per retry.
+        // Resolution failures remain ordinary attempt failures so quiet mode, retries,
+        // fallbacks, hooks, and events retain their documented behavior.
+        try {
+            $primaryCallable = $this->resolveCallable($primaryCallable)['callable'];
+        } catch (Throwable $e) {
+            $primaryCallable = static fn () => throw $e;
+        }
+
         $context = new AttemptContext(
             maxAttempts: $this->maxRetries + 1,
             input: $this->input
@@ -278,7 +297,7 @@ class AttemptBuilder
         $this->fireEvent(new AttemptStarted($context));
 
         try {
-            $result = $this->executeWithRetries($context);
+            $result = $this->executeWithRetries($context, $primaryCallable);
             $this->executed = true;
             $this->cachedResult = $result;
 
@@ -292,7 +311,7 @@ class AttemptBuilder
     /**
      * Execute with retry logic.
      */
-    protected function executeWithRetries(AttemptContext $context): AttemptResult
+    protected function executeWithRetries(AttemptContext $context, callable $primaryCallable): AttemptResult
     {
         $lastException = null;
         $attemptNumber = 0;
@@ -303,13 +322,6 @@ class AttemptBuilder
             $this->delayCallback,
             $this->jitter
         );
-
-        // Handle array of callables as fallback chain
-        $callables = $this->normalizeCallables();
-        $primaryCallable = array_shift($callables);
-
-        // Merge remaining callables with fallbacks
-        $this->fallbacks = array_merge($callables, $this->fallbacks);
 
         while ($attemptNumber < $maxAttempts) {
             $attemptNumber++;
@@ -323,7 +335,7 @@ class AttemptBuilder
                 }
 
                 // Execute primary callable
-                $result = $this->executeCallable($primaryCallable, $context);
+                $result = $primaryCallable(...$this->input);
 
                 // Success
                 $context->succeeded = true;
@@ -408,7 +420,7 @@ class AttemptBuilder
     /**
      * Execute fallback handlers.
      */
-    protected function executeFallbacks(AttemptContext $context, Throwable $lastException): ?AttemptResult
+    protected function executeFallbacks(AttemptContext $context, Throwable &$lastException): ?AttemptResult
     {
         foreach ($this->fallbacks as $index => $fallback) {
             $fallbackName = is_string($fallback) ? $fallback : 'closure:'.($index + 1);
@@ -468,7 +480,7 @@ class AttemptBuilder
             $callable = $callable->all();
         }
 
-        if (is_array($callable)) {
+        if (is_array($callable) && ! is_callable($callable)) {
             // Check if it's an associative array (not a list of callables)
             if (array_is_list($callable)) {
                 return $callable;
@@ -725,9 +737,51 @@ class AttemptBuilder
             'fallbacks' => $this->fallbacks,
             'catchHandlers' => $this->catchHandlers,
             'finallyCallbacks' => $this->finallyCallbacks,
+            'deferCallbacks' => $this->deferCallbacks,
+            'onRetryCallbacks' => $this->onRetryCallbacks,
+            'onFallbackCallbacks' => $this->onFallbackCallbacks,
+            'onSuccessCallbacks' => $this->onSuccessCallbacks,
+            'onFailureCallbacks' => $this->onFailureCallbacks,
+            'exceptionHandlerClass' => $this->exceptionHandlerClass,
+            'retryIf' => $this->retryIf,
+            'retryUnless' => $this->retryUnless,
             'shouldThrow' => $this->shouldThrow,
             'quiet' => $this->quiet,
+            'condition' => $this->condition,
+            'conditionNegated' => $this->conditionNegated,
             'eventsEnabled' => $this->eventsEnabled,
         ];
+    }
+
+    /**
+     * Recreate a builder from a previously exported configuration.
+     */
+    public static function fromConfiguration(array $config): static
+    {
+        $builder = new static($config['callable'], ...$config['input']);
+
+        $builder->maxRetries = $config['maxRetries'];
+        $builder->delay = $config['delay'];
+        $builder->retryStrategy = $config['retryStrategy'];
+        $builder->delayCallback = $config['delayCallback'];
+        $builder->jitter = $config['jitter'];
+        $builder->fallbacks = $config['fallbacks'];
+        $builder->catchHandlers = $config['catchHandlers'];
+        $builder->finallyCallbacks = $config['finallyCallbacks'];
+        $builder->deferCallbacks = $config['deferCallbacks'];
+        $builder->onRetryCallbacks = $config['onRetryCallbacks'];
+        $builder->onFallbackCallbacks = $config['onFallbackCallbacks'];
+        $builder->onSuccessCallbacks = $config['onSuccessCallbacks'];
+        $builder->onFailureCallbacks = $config['onFailureCallbacks'];
+        $builder->exceptionHandlerClass = $config['exceptionHandlerClass'];
+        $builder->retryIf = $config['retryIf'];
+        $builder->retryUnless = $config['retryUnless'];
+        $builder->shouldThrow = $config['shouldThrow'];
+        $builder->quiet = $config['quiet'];
+        $builder->condition = $config['condition'];
+        $builder->conditionNegated = $config['conditionNegated'];
+        $builder->eventsEnabled = $config['eventsEnabled'];
+
+        return $builder;
     }
 }

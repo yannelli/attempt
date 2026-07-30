@@ -22,7 +22,9 @@ trait HasFallbacks
             $fallbacks = $fallbacks->all();
         }
 
-        $this->fallbacks = is_array($fallbacks) ? $fallbacks : [$fallbacks];
+        $this->fallbacks = is_array($fallbacks) && ! is_callable($fallbacks)
+            ? $fallbacks
+            : [$fallbacks];
         $this->fallbackPipelineMode = false;
 
         return $this;

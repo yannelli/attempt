@@ -15,7 +15,7 @@ class AsyncAttemptBuilder
 
     protected ?string $queue = null;
 
-    protected int $timeout = 60;
+    protected ?int $timeout = null;
 
     protected ?Closure $thenCallback = null;
 
@@ -50,7 +50,7 @@ class AsyncAttemptBuilder
      */
     public function timeout(int $seconds): static
     {
-        $this->timeout = $seconds;
+        $this->timeout = max(1, $seconds);
 
         return $this;
     }
@@ -91,7 +91,8 @@ class AsyncAttemptBuilder
         $job = new AsyncAttemptJob(
             $this->builder->getConfiguration(),
             $this->thenCallback,
-            $this->catchCallback
+            $this->catchCallback,
+            $this->timeout ?? (int) config('attempt.async.timeout', 60)
         );
 
         Queue::connection($connection)

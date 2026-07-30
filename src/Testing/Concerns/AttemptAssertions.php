@@ -14,7 +14,8 @@ trait AttemptAssertions
     public function assertAttempted(string $callable): void
     {
         $found = collect($this->recorded)
-            ->filter(fn ($record) => $record['callable'] === $callable || ($record['callable'] ?? null) === $callable)
+            ->filter(fn ($record) => ($record['type'] ?? null) === 'attempt'
+                && ($record['callable'] ?? null) === $callable)
             ->isNotEmpty();
 
         PHPUnit::assertTrue(
@@ -29,8 +30,8 @@ trait AttemptAssertions
     public function assertAttemptedTimes(string $callable, int $times): void
     {
         $count = collect($this->recorded)
-            ->filter(fn ($record) => ($record['type'] === 'attempt' || $record['type'] === 'try')
-                && ($record['callable'] === $callable))
+            ->filter(fn ($record) => ($record['type'] ?? null) === 'attempt'
+                && ($record['callable'] ?? null) === $callable)
             ->count();
 
         PHPUnit::assertEquals(
@@ -46,8 +47,8 @@ trait AttemptAssertions
     public function assertFallbackUsed(string $callable): void
     {
         $found = collect($this->recorded)
-            ->filter(fn ($record) => $record['type'] === 'fallback'
-                && $record['callable'] === $callable)
+            ->filter(fn ($record) => ($record['type'] ?? null) === 'fallback'
+                && ($record['callable'] ?? null) === $callable)
             ->isNotEmpty();
 
         PHPUnit::assertTrue(
@@ -62,7 +63,8 @@ trait AttemptAssertions
     public function assertNeverAttempted(string $callable): void
     {
         $found = collect($this->recorded)
-            ->filter(fn ($record) => $record['callable'] === $callable)
+            ->filter(fn ($record) => ($record['type'] ?? null) === 'attempt'
+                && ($record['callable'] ?? null) === $callable)
             ->isNotEmpty();
 
         PHPUnit::assertFalse(
@@ -76,8 +78,12 @@ trait AttemptAssertions
      */
     public function assertNothingAttempted(): void
     {
-        PHPUnit::assertEmpty(
-            $this->recorded,
+        $attempts = collect($this->recorded)
+            ->filter(fn ($record) => ($record['type'] ?? null) === 'attempt');
+
+        PHPUnit::assertCount(
+            0,
+            $attempts,
             'Failed asserting that no attempts were made.'
         );
     }
@@ -88,7 +94,7 @@ trait AttemptAssertions
     public function assertAttemptCount(int $count): void
     {
         $actualCount = collect($this->recorded)
-            ->filter(fn ($record) => in_array($record['type'], ['attempt', 'try']))
+            ->filter(fn ($record) => ($record['type'] ?? null) === 'attempt')
             ->count();
 
         PHPUnit::assertEquals(
@@ -104,7 +110,8 @@ trait AttemptAssertions
     public function assertSucceeded(string $callable): void
     {
         $found = collect($this->recorded)
-            ->filter(fn ($record) => $record['callable'] === $callable
+            ->filter(fn ($record) => ($record['type'] ?? null) === 'attempt'
+                && ($record['callable'] ?? null) === $callable
                 && ($record['success'] ?? false) === true)
             ->isNotEmpty();
 
@@ -120,7 +127,8 @@ trait AttemptAssertions
     public function assertFailed(string $callable): void
     {
         $found = collect($this->recorded)
-            ->filter(fn ($record) => $record['callable'] === $callable
+            ->filter(fn ($record) => ($record['type'] ?? null) === 'attempt'
+                && ($record['callable'] ?? null) === $callable
                 && ($record['success'] ?? true) === false)
             ->isNotEmpty();
 
