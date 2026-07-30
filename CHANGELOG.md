@@ -2,6 +2,14 @@
 
 All notable changes to `yannelli/attempt` will be documented in this file.
 
+## v1.3.0 - 2026-07-30
+
+### What's Changed
+
+* Laravel AI SDK integration, package icon & banner by @yannelli in https://github.com/yannelli/attempt/pull/13
+
+**Full Changelog**: https://github.com/yannelli/attempt/compare/v1.2.0...v1.3.0
+
 ## v1.2.0 - 2026-07-30
 
 ### Added
