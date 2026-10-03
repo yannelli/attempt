@@ -2,6 +2,15 @@
 
 All notable changes to `yannelli/attempt` will be documented in this file.
 
+## v1.3.1 - 2026-10-03
+
+### What's Changed
+
+* chore(deps): bump actions/checkout from 6 to 7 by @dependabot[bot] in https://github.com/yannelli/attempt/pull/9
+* build(deps): bump dependabot/fetch-metadata from 2.5.0 to 3.1.0 by @dependabot[bot] in https://github.com/yannelli/attempt/pull/5
+
+**Full Changelog**: https://github.com/yannelli/attempt/compare/v1.3.0...v1.3.1
+
 ## v1.3.0 - 2026-07-30
 
 ### What's Changed
