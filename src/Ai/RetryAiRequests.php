@@ -5,16 +5,17 @@ declare(strict_types=1);
 namespace Yannelli\Attempt\Ai;
 
 use Closure;
-use Laravel\Ai\Prompts\AgentPrompt;
+use Laravel\Ai\PendingStep;
 use Yannelli\Attempt\AttemptBuilder;
 
 /**
  * Agent middleware that retries transient provider failures.
  *
- * Because agent middleware runs once per provider in the SDK's failover
- * list, this middleware retries each provider before the SDK fails over
- * to the next one. After retries are exhausted, the original exception
- * is re-thrown so the SDK's provider failover proceeds normally.
+ * Agent middleware wraps each generation step, and the SDK runs every step
+ * once per provider in its failover list. This middleware retries a failing
+ * step on the current provider before the SDK fails over to the next one.
+ * After retries are exhausted, the original exception is re-thrown so the
+ * SDK's provider failover proceeds normally.
  */
 class RetryAiRequests
 {
@@ -45,12 +46,12 @@ class RetryAiRequests
     }
 
     /**
-     * Handle the agent prompt.
+     * Handle the pending generation step.
      */
-    public function __invoke(AgentPrompt $prompt, Closure $next): mixed
+    public function handle(PendingStep $step, Closure $next): mixed
     {
         $builder = AiRetryPolicy::applyTo(
-            AttemptBuilder::make(fn (): mixed => $next($prompt))->retry($this->times)
+            AttemptBuilder::make(fn (): mixed => $next($step))->retry($this->times)
         );
 
         if ($this->configuration !== null) {
