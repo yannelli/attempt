@@ -546,7 +546,7 @@ If you need to customize retry classification, the underlying policy is exposed 
 
 ### Per-Provider Retries with Agent Middleware
 
-The SDK's provider failover moves to the next provider on the first failure. If you would rather retry each provider before failing over, add the `RetryAiRequests` middleware to your agent. Since agent middleware runs once per provider in the failover list, each provider will be retried independently:
+The SDK's provider failover moves to the next provider on the first failure. If you would rather retry each provider before failing over, add the `RetryAiRequests` middleware to your agent. Since agent middleware wraps each generation step and the SDK runs every step once per provider in the failover list, each provider will be retried independently:
 
 ```php
 use Laravel\Ai\Contracts\Agent;
