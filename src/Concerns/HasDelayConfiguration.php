@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Yannelli\Attempt\Concerns;
 
 use Closure;
+use InvalidArgumentException;
 use Yannelli\Attempt\Contracts\RetryStrategy;
+use Yannelli\Attempt\Facades\Attempt;
 use Yannelli\Attempt\Strategies\DecorrelatedJitter;
 use Yannelli\Attempt\Strategies\ExponentialBackoff;
 use Yannelli\Attempt\Strategies\FibonacciBackoff;
@@ -33,17 +35,16 @@ trait HasDelayConfiguration
     }
 
     /**
-     * Use a named backoff strategy.
+     * Use a named backoff strategy, passing any options to its constructor or factory.
+     *
+     * Undefined names are reported and leave the current strategy unchanged; they will throw in 2.0.
      */
     public function backoff(string $strategy, mixed ...$options): static
     {
-        $config = config("attempt.backoff_strategies.{$strategy}", []);
-
-        if (! empty($config['class'])) {
-            $class = $config['class'];
-            unset($config['class']);
-
-            $this->retryStrategy = app($class, array_merge($config, $options));
+        try {
+            $this->retryStrategy = Attempt::makeBackoff($strategy, $options);
+        } catch (InvalidArgumentException $e) {
+            report($e);
         }
 
         return $this;
@@ -121,6 +122,10 @@ trait HasDelayConfiguration
 
     /**
      * Set a custom delay calculation callback.
+     *
+     * Returning null from the callback defers to the configured delay or strategy.
+     *
+     * @param  Closure(int, ?\Throwable): ?int  $callback
      */
     public function delayUsing(Closure $callback): static
     {

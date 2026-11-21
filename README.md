@@ -62,11 +62,7 @@ You may install Attempt into your project using the Composer package manager:
 composer require yannelli/attempt
 ```
 
-After installing Attempt, you may optionally publish its configuration file using the `vendor:publish` Artisan command:
-
-```bash
-php artisan vendor:publish --tag="attempt-config"
-```
+Global behavior is configured with static methods called from a service provider, as described in the [configuration documentation](#configuration). The package's service provider is deferred, so it is only loaded when an attempt is actually made.
 
 ## Making Attempts
 
@@ -247,6 +243,21 @@ Attempt::try($callable)
     ->delayUsing(fn(int $attempt, ?Throwable $e) => $attempt * 1000)
     ->thenReturn();
 ```
+
+If the closure returns `null`, the delay falls back to any delay or backoff strategy configured on the attempt.
+
+#### Named Backoff Strategies
+
+You may also select a strategy by name using the `backoff` method. Any additional arguments are passed to the strategy's constructor. The built-in names are `exponential`, `linear`, `fibonacci`, `decorrelated_jitter`, and `fixed`; you may register your own names [globally](#configuration):
+
+```php
+Attempt::try($callable)
+    ->retry(5)
+    ->backoff('exponential', base: 250, maxDelay: 10000)
+    ->thenReturn();
+```
+
+Delays are performed using Laravel's `Sleep` helper, so you may call `Sleep::fake()` in your tests to skip them.
 
 ### Conditional Retries
 
@@ -468,7 +479,7 @@ $result = Attempt::race([
 
 ## Async Execution
 
-For long-running operations, you may dispatch an attempt to run asynchronously on the queue:
+For long-running operations, you may dispatch an attempt to run asynchronously on the queue. The attempt is dispatched as a `Yannelli\Attempt\Builders\AsyncAttemptJob` through Laravel's bus, so `Bus::fake()` and `Queue::fake()` work as expected:
 
 ```php
 Attempt::try(LongRunningTask::class, $data)
@@ -479,6 +490,39 @@ Attempt::try(LongRunningTask::class, $data)
     ->catch(fn (Throwable $e) => Log::error('Failed', ['error' => $e->getMessage()]))
     ->dispatch();
 ```
+
+When no connection or queue is given, the job uses your application's queue defaults. On Laravel 13, you may route every async attempt to a specific connection and queue using Laravel's queue routing in a service provider's `boot` method:
+
+```php
+use Illuminate\Support\Facades\Queue;
+use Yannelli\Attempt\Builders\AsyncAttemptJob;
+
+Queue::route(AsyncAttemptJob::class, connection: 'redis', queue: 'attempts');
+```
+
+For settings that queue routing cannot express, or on Laravel 12, you may extend the job and register your subclass. Because it is an ordinary Laravel job, you may define any job property or method, such as `$timeout` or `middleware`:
+
+```php
+use Yannelli\Attempt\Builders\AsyncAttemptJob;
+
+class ProcessAttempt extends AsyncAttemptJob
+{
+    public $connection = 'redis';
+
+    public $queue = 'attempts';
+
+    public ?int $timeout = 120;
+}
+```
+
+```php
+use App\Jobs\ProcessAttempt;
+use Yannelli\Attempt\Facades\Attempt;
+
+Attempt::useAsyncJob(ProcessAttempt::class);
+```
+
+The `onConnection`, `onQueue`, and `timeout` methods take precedence over the job's own defaults when dispatching.
 
 If you need to execute the attempt synchronously instead (bypassing the queue), you may use the `await` method:
 
@@ -491,7 +535,7 @@ $result = Attempt::try(LongRunningTask::class, $data)
 
 ## Laravel AI Integration
 
-Attempt provides first-class integration with the official [Laravel AI SDK](https://github.com/laravel/ai). While the SDK offers provider failover out of the box, it does not retry failed requests. Attempt fills this gap with retry policies tuned specifically for AI workloads, giving you three composable layers of resilience: retry each provider with backoff, fail over across providers, and finally fall back to a cached or canned value.
+Attempt provides first-class integration with the official [Laravel AI SDK](https://github.com/laravel/ai). The SDK offers provider failover out of the box, but it only retries a request once, and only when a rate-limited or overloaded provider sends a short `Retry-After` header. Attempt fills this gap with retry policies tuned specifically for AI workloads, giving you three composable layers of resilience: retry each provider with backoff, fail over across providers, and finally fall back to a cached or canned value.
 
 To get started, install the Laravel AI SDK alongside Attempt:
 
@@ -501,7 +545,7 @@ composer require laravel/ai
 
 ### Retrying AI Requests
 
-The `ai` method creates an attempt that is pre-configured for AI requests. Only transient failures will be retried: rate limits, provider overloads, connection errors, and retryable HTTP statuses (408, 429, and 5xx). Permanent failures such as insufficient credits, unknown tools, invalid requests, and malformed responses fail immediately:
+The `ai` method creates an attempt that is pre-configured for AI requests. Only transient failures will be retried: rate limits, provider overloads, provider connection errors, and retryable HTTP statuses (408, 429, and 5xx). Permanent failures such as insufficient credits, unknown tools, invalid requests, and malformed responses fail immediately:
 
 ```php
 use Yannelli\Attempt\Facades\Attempt;
@@ -511,7 +555,16 @@ $response = Attempt::ai(fn () => SupportAgent::make()->prompt($question))
     ->thenReturn();
 ```
 
-When a provider supplies a `Retry-After` header with a rate limit response, Attempt will honor it (capped at 30 seconds). Otherwise, delays are calculated using decorrelated jitter starting at 500 milliseconds. You may override the delay behavior using any of the standard delay methods:
+When a provider supplies a `Retry-After` header with a rate limit response, Attempt will honor it (capped at 30 seconds). Otherwise, delays are calculated using decorrelated jitter starting at 500 milliseconds. You may replace that strategy with any backoff method while still honoring `Retry-After` hints:
+
+```php
+Attempt::ai(fn () => SupportAgent::make()->prompt($question))
+    ->retry(3)
+    ->exponentialBackoff(base: 1000, max: 20000)
+    ->thenReturn();
+```
+
+To take full control of delays, including ignoring `Retry-After` hints, use the `delayUsing` method:
 
 ```php
 Attempt::ai(fn () => SupportAgent::make()->prompt($question))
@@ -645,6 +698,8 @@ Attempt::try($callable)
     ->thenReturn();
 ```
 
+To disable events for every attempt, see the [configuration documentation](#configuration).
+
 ## Testing
 
 Attempt includes a convenient fake implementation for testing. Use the `fake` method to replace the Attempt facade with a test double:
@@ -681,6 +736,8 @@ it('uses fallback when all retries fail', function () {
 });
 ```
 
+Global configuration is stored statically. If your tests change it, call `Attempt::flushState()` in your test case's `tearDown` method to reset it.
+
 To run the package’s test suite:
 
 ```bash
@@ -689,41 +746,56 @@ composer test
 
 ## Configuration
 
-The published configuration file (`config/attempt.php`) allows you to customize named backoff strategies, queue behavior, events, and global exception retry rules:
+Global behavior is configured with static methods on the `Attempt` facade, typically from the `boot` method of your application's `AppServiceProvider`. These methods never resolve the underlying manager, so they do not force the package's deferred service provider to load:
 
 ```php
-return [
-    'backoff_strategies' => [
-        'exponential' => [...],
-        'linear' => [...],
-        'fibonacci' => [...],
-        'decorrelated_jitter' => [...],
-    ],
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Validation\ValidationException;
+use Yannelli\Attempt\Facades\Attempt;
+use Yannelli\Attempt\Strategies\ExponentialBackoff;
 
-    'async' => [
-        'connection' => env('ATTEMPT_QUEUE_CONNECTION'),
-        'queue' => env('ATTEMPT_QUEUE'),
-        'timeout' => 60,
-    ],
-
-    'events' => [
-        'enabled' => true,
-    ],
-
-    // Exceptions that should never trigger retries
-    'never_retry' => [
+public function boot(): void
+{
+    // Exceptions that are never retried, regardless of per-attempt rules...
+    Attempt::neverRetry([
         ValidationException::class,
-        AuthenticationException::class,
         AuthorizationException::class,
-        ModelNotFoundException::class,
-    ],
+    ]);
 
-    // Exceptions that should always trigger retries
-    'always_retry' => [
+    // Exceptions that are always retried while retries remain...
+    Attempt::alwaysRetry([
         ConnectionException::class,
-    ],
-];
+    ]);
+
+    // Named strategies for the backoff method; a built-in name may be replaced...
+    Attempt::defineBackoff('aggressive', fn () => new ExponentialBackoff(base: 50, multiplier: 3.0, maxDelay: 5000));
+
+    // Disable event dispatching for every attempt...
+    Attempt::disableEvents();
+
+    // Run async attempts with your own job subclass...
+    Attempt::useAsyncJob(ProcessAttempt::class);
+}
 ```
+
+Global retry rules take precedence over `retryIf`, `retryUnless`, and strategy decisions, with never-retry rules checked first. Calling `neverRetry` or `alwaysRetry` again replaces the previously configured exceptions. A backoff strategy may be registered as a class name or as a closure that receives any arguments passed to `backoff`:
+
+```php
+Attempt::try($callable)->retry(3)->backoff('aggressive')->thenReturn();
+```
+
+To configure where async attempts are queued, use Laravel's queue routing or a custom job class as described in the [async documentation](#async-execution).
+
+### Migrating From the Configuration File
+
+The `config/attempt.php` file is deprecated and will be removed in 2.0. Until then, any setting that has not been configured statically falls back to the configuration file, so existing applications keep working. To convert a published configuration file, run the following command in your development environment:
+
+```bash
+php artisan attempt:migrate-config
+```
+
+The command writes the customized settings to `app/Providers/AttemptServiceProvider.php`, registers that provider in `bootstrap/providers.php`, and offers to delete `config/attempt.php`. Async settings become a `Queue::route` call on Laravel 13, or a generated `app/Jobs/ProcessAttempt.php` job when queue routing cannot express them. If a setting cannot be migrated, such as a queue connection read from an environment variable, the command explains why and keeps the configuration file. It asks for confirmation before running in production. See [UPGRADING](UPGRADING.md) for details.
 
 ## Changelog
 

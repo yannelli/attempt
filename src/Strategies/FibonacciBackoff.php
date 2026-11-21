@@ -17,28 +17,23 @@ class FibonacciBackoff implements RetryStrategy
     public function getDelay(int $attempt, int $baseDelay): int
     {
         $base = $this->base > 0 ? $this->base : $baseDelay;
-        $fibonacci = $this->fibonacci($attempt);
-        $delay = $base * $fibonacci;
 
-        return min($delay, $this->maxDelay);
+        if ($base <= 0) {
+            return 0;
+        }
+
+        // Stop advancing once the cap is reached so large attempt numbers cannot overflow
+        [$previous, $current] = [0, 1];
+
+        for ($i = 1; $i < $attempt && $base * $current < $this->maxDelay; $i++) {
+            [$previous, $current] = [$current, $previous + $current];
+        }
+
+        return min($base * $current, $this->maxDelay);
     }
 
     public function shouldRetry(Throwable $e, int $attempt, int $maxAttempts): bool
     {
         return $attempt < $maxAttempts;
-    }
-
-    protected function fibonacci(int $n): int
-    {
-        if ($n <= 1) {
-            return 1;
-        }
-
-        $fib = [1, 1];
-        for ($i = 2; $i < $n; $i++) {
-            $fib[$i] = $fib[$i - 1] + $fib[$i - 2];
-        }
-
-        return $fib[$n - 1];
     }
 }

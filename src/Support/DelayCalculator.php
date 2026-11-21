@@ -24,11 +24,11 @@ class DelayCalculator
     {
         $baseDelay = is_array($this->delay) ? ($this->delay[0] ?? 0) : $this->delay;
 
-        // Custom callback takes precedence
-        if ($this->callback !== null) {
-            $delay = (int) ($this->callback)($attempt, $exception);
+        // Custom callback takes precedence unless it returns null
+        $delay = $this->callback !== null ? ($this->callback)($attempt, $exception) : null;
 
-            return $this->applyJitter($delay);
+        if ($delay !== null) {
+            return $this->applyJitter((int) $delay);
         }
 
         // Array of explicit delays
@@ -71,7 +71,7 @@ class DelayCalculator
     }
 
     /**
-     * Create a new calculator with updated parameters.
+     * @deprecated Unused internally. Will be removed in 2.0.
      */
     public function withDelay(int|array $delay): static
     {
@@ -79,7 +79,7 @@ class DelayCalculator
     }
 
     /**
-     * Create a new calculator with a strategy.
+     * @deprecated Unused internally. Will be removed in 2.0.
      */
     public function withStrategy(RetryStrategy $strategy): static
     {
@@ -87,7 +87,7 @@ class DelayCalculator
     }
 
     /**
-     * Create a new calculator with a callback.
+     * @deprecated Unused internally. Will be removed in 2.0.
      */
     public function withCallback(Closure $callback): static
     {
@@ -95,7 +95,7 @@ class DelayCalculator
     }
 
     /**
-     * Create a new calculator with jitter.
+     * @deprecated Unused internally. Will be removed in 2.0.
      */
     public function withJitter(float $jitter): static
     {

@@ -7,11 +7,11 @@ namespace Yannelli\Attempt\Ai;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Laravel\Ai\Exceptions\AiException;
+use Laravel\Ai\Exceptions\ProviderConnectionException;
 use Laravel\Ai\Exceptions\ProviderOverloadedException;
 use Laravel\Ai\Exceptions\RateLimitedException;
 use Throwable;
 use Yannelli\Attempt\AttemptBuilder;
-use Yannelli\Attempt\Strategies\DecorrelatedJitter;
 
 /**
  * A retry policy tuned for Laravel AI SDK requests.
@@ -35,17 +35,17 @@ class AiRetryPolicy
 
     /**
      * Apply the policy's retry condition and delay strategy to a builder.
+     *
+     * Provider "Retry-After" hints take precedence. Without a hint, the delay
+     * defers to the builder's strategy, so calling a backoff method after
+     * this policy changes the fallback delay while hints are still honored.
      */
     public static function applyTo(AttemptBuilder $builder): AttemptBuilder
     {
-        $strategy = new DecorrelatedJitter(base: static::BASE_DELAY, maxDelay: static::MAX_DELAY);
-
         return $builder
             ->retryIf(fn (Throwable $e): bool => static::shouldRetry($e))
-            ->delayUsing(fn (int $attempt, ?Throwable $e): int => $e !== null
-                ? static::retryAfter($e) ?? $strategy->getDelay($attempt, static::BASE_DELAY)
-                : $strategy->getDelay($attempt, static::BASE_DELAY)
-            );
+            ->decorrelatedJitter(base: static::BASE_DELAY, max: static::MAX_DELAY)
+            ->delayUsing(fn (int $attempt, ?Throwable $e): ?int => $e !== null ? static::retryAfter($e) : null);
     }
 
     /**
@@ -53,7 +53,10 @@ class AiRetryPolicy
      */
     public static function shouldRetry(Throwable $e): bool
     {
-        if ($e instanceof RateLimitedException || $e instanceof ProviderOverloadedException) {
+        // Newer SDK releases wrap connection failures in ProviderConnectionException
+        if ($e instanceof RateLimitedException
+            || $e instanceof ProviderOverloadedException
+            || $e instanceof ProviderConnectionException) {
             return true;
         }
 

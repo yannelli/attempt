@@ -43,3 +43,10 @@ it('works with custom multiplier', function () {
     expect($strategy->getDelay(2, 100))->toBe(300);
     expect($strategy->getDelay(3, 100))->toBe(900);
 });
+
+it('caps delays for very large attempt numbers', function () {
+    $strategy = new ExponentialBackoff(base: 100, multiplier: 2.0, maxDelay: 30000);
+
+    expect($strategy->getDelay(64, 100))->toBe(30000)
+        ->and($strategy->getDelay(2000, 100))->toBe(30000);
+});

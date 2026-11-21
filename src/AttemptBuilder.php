@@ -6,6 +6,7 @@ namespace Yannelli\Attempt;
 
 use Closure;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Sleep;
 use InvalidArgumentException;
 use Throwable;
 use Yannelli\Attempt\Builders\AsyncAttemptBuilder;
@@ -23,6 +24,7 @@ use Yannelli\Attempt\Events\AttemptSucceeded;
 use Yannelli\Attempt\Events\FallbackTriggered;
 use Yannelli\Attempt\Events\RetryAttempted;
 use Yannelli\Attempt\Exceptions\AllFallbacksFailed as AllFallbacksFailedException;
+use Yannelli\Attempt\Facades\Attempt;
 use Yannelli\Attempt\Support\DelayCalculator;
 
 class AttemptBuilder
@@ -45,12 +47,6 @@ class AttemptBuilder
     protected ?Closure $condition = null;
 
     protected bool $conditionNegated = false;
-
-    protected string $pipelineMethod = 'handle';
-
-    protected array $pipes = [];
-
-    protected bool $executed = false;
 
     protected ?AttemptResult $cachedResult = null;
 
@@ -101,31 +97,33 @@ class AttemptBuilder
     }
 
     /**
-     * Set the method to call on pipeline handlers.
+     * This method has never affected execution.
+     *
+     * @deprecated Use Attempt::pipeline() instead. Will be removed in 2.0.
      */
     public function via(string $method): static
     {
-        $this->pipelineMethod = $method;
-
         return $this;
     }
 
     /**
-     * Append pipes (when using pipeline mode).
+     * This method has never affected execution.
+     *
+     * @deprecated Use Attempt::pipeline() instead. Will be removed in 2.0.
      */
     public function through(array $pipes): static
     {
-        $this->pipes = array_merge($this->pipes, $pipes);
-
         return $this;
     }
 
     /**
-     * Alias for through().
+     * This method has never affected execution.
+     *
+     * @deprecated Use Attempt::pipeline() instead. Will be removed in 2.0.
      */
     public function pipe(array $pipes): static
     {
-        return $this->through($pipes);
+        return $this;
     }
 
     /**
@@ -246,7 +244,7 @@ class AttemptBuilder
     protected function execute(): AttemptResult
     {
         // Return cached result if already executed
-        if ($this->executed && $this->cachedResult !== null) {
+        if ($this->cachedResult !== null) {
             return $this->cachedResult;
         }
 
@@ -256,7 +254,6 @@ class AttemptBuilder
             $shouldRun = $this->conditionNegated ? ! $conditionResult : $conditionResult;
 
             if (! $shouldRun) {
-                $this->executed = true;
                 $this->cachedResult = new AttemptResult(
                     value: null,
                     succeeded: true,
@@ -269,24 +266,32 @@ class AttemptBuilder
             }
         }
 
-        $callables = $this->normalizeCallables();
-        $primaryCallable = array_shift($callables);
+        $fallbacks = $this->normalizeCallables();
+        $primaryCallable = array_shift($fallbacks);
 
         if ($primaryCallable === null) {
             throw new InvalidArgumentException('At least one callable must be provided');
         }
-
-        $this->fallbacks = array_merge($callables, $this->fallbacks);
 
         // Resolve self-configuring callables before retry limits and context are created.
         // Reuse the resolved callable so configuration is not applied again per retry.
         // Resolution failures remain ordinary attempt failures so quiet mode, retries,
         // fallbacks, hooks, and events retain their documented behavior.
         try {
-            $primaryCallable = $this->resolveCallable($primaryCallable)['callable'];
+            $resolved = $this->resolveCallable($primaryCallable);
+
+            if ($resolved['instance'] instanceof ConfiguresAttempt) {
+                $resolved['instance']->configureAttempt($this);
+            }
+
+            $primaryCallable = $resolved['callable'];
         } catch (Throwable $e) {
             $primaryCallable = static fn () => throw $e;
         }
+
+        // Callables after the first in a list run before explicitly configured fallbacks.
+        // The merged list stays local so repeated executions never duplicate fallbacks.
+        $fallbacks = [...$fallbacks, ...$this->fallbacks];
 
         $context = new AttemptContext(
             maxAttempts: $this->maxRetries + 1,
@@ -297,11 +302,7 @@ class AttemptBuilder
         $this->fireEvent(new AttemptStarted($context));
 
         try {
-            $result = $this->executeWithRetries($context, $primaryCallable);
-            $this->executed = true;
-            $this->cachedResult = $result;
-
-            return $result;
+            return $this->cachedResult = $this->executeWithRetries($context, $primaryCallable, $fallbacks);
         } finally {
             $this->runFinallyCallbacks($context);
             $this->scheduleDeferredCallbacks($context);
@@ -311,7 +312,7 @@ class AttemptBuilder
     /**
      * Execute with retry logic.
      */
-    protected function executeWithRetries(AttemptContext $context, callable $primaryCallable): AttemptResult
+    protected function executeWithRetries(AttemptContext $context, callable $primaryCallable, array $fallbacks): AttemptResult
     {
         $lastException = null;
         $attemptNumber = 0;
@@ -368,7 +369,7 @@ class AttemptBuilder
                 if ($attemptNumber < $maxAttempts && $this->shouldRetry($e, $attemptNumber, $maxAttempts)) {
                     $delay = $delayCalculator->calculate($attemptNumber, $e);
                     if ($delay > 0) {
-                        usleep($delay * 1000);
+                        Sleep::usleep($delay * 1000);
                     }
 
                     continue;
@@ -380,8 +381,8 @@ class AttemptBuilder
         }
 
         // Try fallbacks
-        if (! empty($this->fallbacks)) {
-            $fallbackResult = $this->executeFallbacks($context, $lastException);
+        if ($fallbacks !== []) {
+            $fallbackResult = $this->executeFallbacks($context, $fallbacks, $lastException);
             if ($fallbackResult !== null) {
                 return $fallbackResult;
             }
@@ -394,17 +395,6 @@ class AttemptBuilder
 
         if ($this->shouldThrow && ! $this->quiet) {
             throw $lastException;
-        }
-
-        if ($this->quiet) {
-            return new AttemptResult(
-                value: null,
-                succeeded: false,
-                exception: $lastException,
-                attempts: $attemptNumber,
-                resolvedBy: null,
-                attemptLog: $context->attemptLog
-            );
         }
 
         return new AttemptResult(
@@ -420,28 +410,26 @@ class AttemptBuilder
     /**
      * Execute fallback handlers.
      */
-    protected function executeFallbacks(AttemptContext $context, Throwable &$lastException): ?AttemptResult
+    protected function executeFallbacks(AttemptContext $context, array $fallbacks, Throwable &$lastException): ?AttemptResult
     {
-        foreach ($this->fallbacks as $index => $fallback) {
+        foreach ($fallbacks as $index => $fallback) {
             $fallbackName = is_string($fallback) ? $fallback : 'closure:'.($index + 1);
 
             try {
-                // Fire fallback event
-                $this->fireEvent(new FallbackTriggered($context, $fallback, $lastException));
-                $this->runOnFallbackCallbacks($context, $fallback, $lastException);
-
-                // Check if fallback should be skipped
                 $resolved = $this->resolveCallable($fallback);
-                $instance = $resolved['instance'] ?? null;
+                $instance = $resolved['instance'];
 
+                // Skipped fallbacks are not triggered, so no event or hook fires for them
                 if ($instance instanceof Fallbackable && $instance->shouldSkip($lastException)) {
                     continue;
                 }
 
-                // Execute fallback
+                $this->fireEvent(new FallbackTriggered($context, $fallback, $lastException));
+                $this->runOnFallbackCallbacks($context, $fallback, $lastException);
+
                 $result = $instance instanceof Fallbackable
                     ? $instance->handleFallback($lastException, ...$this->input)
-                    : $this->executeCallable($fallback, $context);
+                    : $resolved['callable'](...$this->input);
 
                 // Success
                 $context->succeeded = true;
@@ -492,6 +480,8 @@ class AttemptBuilder
 
     /**
      * Resolve a callable to an executable form.
+     *
+     * @return array{callable: callable, instance: ?object}
      */
     protected function resolveCallable(mixed $callable): array
     {
@@ -503,11 +493,6 @@ class AttemptBuilder
         // Class string - resolve from container
         if (is_string($callable) && class_exists($callable)) {
             $instance = app($callable);
-
-            // If class implements ConfiguresAttempt, apply configuration
-            if ($instance instanceof ConfiguresAttempt) {
-                $instance->configureAttempt($this);
-            }
 
             // Return appropriate callable
             if ($instance instanceof Attemptable) {
@@ -559,20 +544,11 @@ class AttemptBuilder
      */
     protected function shouldRetry(Throwable $e, int $attempt, int $maxAttempts): bool
     {
-        // Check never_retry config
-        $neverRetry = config('attempt.never_retry', []);
-        foreach ($neverRetry as $exceptionClass) {
-            if ($e instanceof $exceptionClass) {
-                return false;
-            }
-        }
+        // Global never/always retry rules take precedence over per-attempt rules
+        $globalRule = Attempt::retryRuleFor($e);
 
-        // Check always_retry config
-        $alwaysRetry = config('attempt.always_retry', []);
-        foreach ($alwaysRetry as $exceptionClass) {
-            if ($e instanceof $exceptionClass) {
-                return true;
-            }
+        if ($globalRule !== null) {
+            return $globalRule;
         }
 
         // Check retryIf callback
@@ -710,11 +686,7 @@ class AttemptBuilder
      */
     protected function fireEvent(object $event): void
     {
-        if (! $this->eventsEnabled) {
-            return;
-        }
-
-        if (! config('attempt.events.enabled', true)) {
+        if (! $this->eventsEnabled || Attempt::eventsDisabled()) {
             return;
         }
 

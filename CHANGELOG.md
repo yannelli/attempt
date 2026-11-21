@@ -2,6 +2,41 @@
 
 All notable changes to `yannelli/attempt` will be documented in this file.
 
+## v1.4.0 - 2026-11-21
+
+### Added
+
+- Added static configuration on the `Attempt` facade: `neverRetry()`, `alwaysRetry()`, `defineBackoff()`, `disableEvents()`, `useAsyncJob()`, and `flushState()`. These never resolve the manager, so configuring Attempt from a service provider does not load the deferred provider.
+- Added `Attempt::useAsyncJob()` to run async attempts with a custom `AsyncAttemptJob` subclass that sets its own connection, queue, timeout, or middleware on Laravel 12 and 13.
+- Added the `attempt:migrate-config` command, which converts a published `config/attempt.php` into a generated service provider (and job class when needed).
+- Added the `fixed` named backoff strategy.
+
+### Changed
+
+- The service provider is now deferred. It still extends Spatie's `PackageServiceProvider`; subclasses stay eager unless they override `isDeferred()`.
+- Async attempts are dispatched through Laravel's bus, so `Bus::fake()` captures them and Laravel 13 `Queue::route()` applies.
+- Retry delays use Laravel's `Sleep` helper, so `Sleep::fake()` skips them in tests.
+- A `delayUsing` callback may return `null` to defer to the configured delay or strategy.
+
+### Fixed
+
+- Fixed `Attempt::ai()` not retrying connection errors now that laravel/ai wraps them in `ProviderConnectionException`.
+- Fixed backoff methods called after `ai()` or in `RetryAiRequests::configureUsing()` being ignored; `Retry-After` hints are still honored.
+- Fixed undefined backoff names being silently ignored (they are now reported) and positional backoff options being dropped.
+- Fixed skipped fallbacks firing `FallbackTriggered` and `onFallback`, fallbacks being resolved twice, `configureAttempt()` being applied to fallbacks, and list fallbacks being duplicated when a builder runs again.
+- Fixed exponential and Fibonacci backoff overflowing at high attempt counts.
+- Fixed `AttemptPipe` ignoring `delayUsing()`.
+
+### Deprecated
+
+- `config/attempt.php`, the `attempt-config` publish tag, and the `ATTEMPT_QUEUE_CONNECTION` and `ATTEMPT_QUEUE` environment variables. Settings not configured statically still fall back to the config file until 2.0. Run `php artisan attempt:migrate-config` to migrate.
+- The no-op `AttemptBuilder::via()`, `through()`, and `pipe()` methods, and the unused `DelayCalculator::with*()` methods.
+- Undefined backoff names will throw in 2.0.
+
+See [UPGRADING](https://github.com/yannelli/attempt/blob/main/UPGRADING.md) for details.
+
+**Full Changelog**: https://github.com/yannelli/attempt/compare/v1.3.1...v1.4.0
+
 ## v1.3.1 - 2026-10-03
 
 ### What's Changed

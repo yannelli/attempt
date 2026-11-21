@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Yannelli\Attempt\Builders;
 
 use Closure;
-use Illuminate\Support\Facades\Queue;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Yannelli\Attempt\AttemptBuilder;
 use Yannelli\Attempt\AttemptResult;
+use Yannelli\Attempt\Facades\Attempt;
 
 class AsyncAttemptBuilder
 {
@@ -46,7 +47,7 @@ class AsyncAttemptBuilder
     }
 
     /**
-     * Set the timeout.
+     * Set the job timeout in seconds, overriding the worker's timeout.
      */
     public function timeout(int $seconds): static
     {
@@ -77,26 +78,40 @@ class AsyncAttemptBuilder
 
     /**
      * Dispatch the attempt to the queue.
+     *
+     * Unset connections and queues defer to Laravel's queue routing
+     * (Queue::route) and then to the application's queue defaults.
      */
     public function dispatch(): void
     {
-        $connection = $this->connection
-            ?? config('attempt.async.connection')
-            ?? config('queue.default');
+        $class = Attempt::asyncJob();
 
-        $queue = $this->queue
-            ?? config('attempt.async.queue')
-            ?? config("queue.connections.{$connection}.queue", 'default');
-
-        $job = new AsyncAttemptJob(
+        $job = new $class(
             $this->builder->getConfiguration(),
             $this->thenCallback,
             $this->catchCallback,
-            $this->timeout ?? (int) config('attempt.async.timeout', 60)
+            $this->timeout
         );
 
-        Queue::connection($connection)
-            ->pushOn($queue, $job);
+        // Deprecated: the attempt.async config applies only to the default job and will be removed in 2.0.
+        if ($class === AsyncAttemptJob::class) {
+            $timeout = config('attempt.async.timeout', 60);
+
+            $job->timeout ??= $timeout === null ? null : (int) $timeout;
+            $job->connection ??= config('attempt.async.connection');
+            $job->queue ??= config('attempt.async.queue');
+        }
+
+        // Only explicit values are applied, so a custom job's own defaults and queue routes still apply.
+        if ($this->connection !== null) {
+            $job->onConnection($this->connection);
+        }
+
+        if ($this->queue !== null) {
+            $job->onQueue($this->queue);
+        }
+
+        app(Dispatcher::class)->dispatch($job);
     }
 
     /**

@@ -9,6 +9,7 @@ use Illuminate\Http\Client\Response;
 use Laravel\Ai\Exceptions\AiException;
 use Laravel\Ai\Exceptions\InsufficientCreditsException;
 use Laravel\Ai\Exceptions\NoSuchToolException;
+use Laravel\Ai\Exceptions\ProviderConnectionException;
 use Laravel\Ai\Exceptions\ProviderOverloadedException;
 use Laravel\Ai\Exceptions\RateLimitedException;
 use Yannelli\Attempt\Ai\AiRetryPolicy;
@@ -26,6 +27,10 @@ it('retries rate limited exceptions', function () {
 
 it('retries provider overloaded exceptions', function () {
     expect(AiRetryPolicy::shouldRetry(ProviderOverloadedException::forProvider('openai')))->toBeTrue();
+});
+
+it('retries provider connection exceptions', function () {
+    expect(AiRetryPolicy::shouldRetry(ProviderConnectionException::forProvider('openai')))->toBeTrue();
 });
 
 it('does not retry insufficient credits exceptions', function () {
