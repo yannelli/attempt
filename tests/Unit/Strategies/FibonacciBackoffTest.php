@@ -32,3 +32,10 @@ it('should retry when attempts remain', function () {
     expect($strategy->shouldRetry(new RuntimeException('test'), 2, 3))->toBeTrue();
     expect($strategy->shouldRetry(new RuntimeException('test'), 3, 3))->toBeFalse();
 });
+
+it('caps delays for very large attempt numbers', function () {
+    $strategy = new FibonacciBackoff(base: 100, maxDelay: 30000);
+
+    expect($strategy->getDelay(100, 100))->toBe(30000)
+        ->and($strategy->getDelay(5000, 100))->toBe(30000);
+});

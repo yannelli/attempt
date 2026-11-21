@@ -14,15 +14,11 @@ class AttemptPipe
     use HasDelayConfiguration;
     use HasFallbacks;
 
-    protected AttemptBuilder $builder;
-
     protected int $maxRetries = 0;
 
     public function __construct(
         protected string|Closure $callable
-    ) {
-        $this->builder = new AttemptBuilder($this->callable);
-    }
+    ) {}
 
     /**
      * Wrap a callable in an AttemptPipe.
@@ -60,6 +56,10 @@ class AttemptPipe
 
         if ($this->retryStrategy !== null) {
             $builder->usingStrategy($this->retryStrategy);
+        }
+
+        if ($this->delayCallback !== null) {
+            $builder->delayUsing($this->delayCallback);
         }
 
         if ($this->jitter > 0) {

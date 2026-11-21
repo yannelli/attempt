@@ -5,6 +5,15 @@ use Yannelli\Attempt\Strategies\ExponentialBackoff;
 use Yannelli\Attempt\Strategies\FibonacciBackoff;
 use Yannelli\Attempt\Strategies\LinearBackoff;
 
+/*
+|--------------------------------------------------------------------------
+| Deprecated
+|--------------------------------------------------------------------------
+| This file is read for backwards compatibility and will be removed in 2.0.
+| Configure Attempt with the static methods on the Attempt facade instead,
+| or run `php artisan attempt:migrate-config` to convert this file.
+*/
+
 return [
     /*
     |--------------------------------------------------------------------------

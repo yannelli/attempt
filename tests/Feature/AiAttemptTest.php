@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
+use GuzzleHttp\Psr7\Response as Psr7Response;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 use Laravel\Ai\Exceptions\InsufficientCreditsException;
 use Laravel\Ai\Exceptions\RateLimitedException;
 use Yannelli\Attempt\Facades\Attempt;
@@ -59,6 +63,31 @@ describe('Attempt::ai()', function () {
             ->and($result->exception())->toBeInstanceOf(InsufficientCreditsException::class);
     });
 
+    it('honors retry-after hints and defers to an overridden backoff otherwise', function () {
+        Sleep::fake();
+
+        $calls = 0;
+
+        $result = Attempt::ai(function () use (&$calls) {
+            throw match (++$calls) {
+                1 => RateLimitedException::forProvider('openai', previous: new RequestException(
+                    new Response(new Psr7Response(429, ['Retry-After' => '2'], '{}'))
+                )),
+                default => RateLimitedException::forProvider('openai'),
+            };
+        })
+            ->retry(2)
+            ->fixedDelay(250)
+            ->run();
+
+        expect($result->attempts())->toBe(3);
+
+        Sleep::assertSequence([
+            Sleep::for(2000)->milliseconds(),
+            Sleep::for(250)->milliseconds(),
+        ]);
+    });
+
     it('composes with fallbacks', function () {
         $result = Attempt::ai(function () {
             throw RateLimitedException::forProvider('openai');
@@ -91,11 +120,13 @@ describe('RetryAiRequests middleware', function () {
     });
 
     it('rethrows the original exception after exhausting retries', function () {
+        // Without a Retry-After hint the SDK does not retry internally, so every request is ours
+        Sleep::fake();
+
         Http::fake([
             'api.openai.com/v1/responses' => Http::response(
                 ['error' => ['message' => 'Rate limited.']],
-                429,
-                ['Retry-After' => '0']
+                429
             ),
         ]);
 

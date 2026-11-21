@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\Facades\Facade;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Yannelli\Attempt\Contracts\RetryStrategy;
@@ -36,9 +37,10 @@ arch('facades extend base facade')
     ->expect('Yannelli\Attempt\Facades')
     ->toExtend(Facade::class);
 
-arch('service provider extends package service provider')
+arch('service provider is a deferrable package service provider')
     ->expect('Yannelli\Attempt\AttemptServiceProvider')
-    ->toExtend(PackageServiceProvider::class);
+    ->toExtend(PackageServiceProvider::class)
+    ->toImplement(DeferrableProvider::class);
 
 arch('strict types are declared')
     ->expect('Yannelli\Attempt')
