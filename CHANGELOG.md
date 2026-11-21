@@ -2,6 +2,12 @@
 
 All notable changes to `yannelli/attempt` will be documented in this file.
 
+## v1.4.1 - 2026-11-21
+
+### Changed
+
+- The package homepage on Packagist now points to the project page, https://ryanyannelli.com/projects/yannelli-attempt-for-laravel/.
+
 ## v1.4.0 - 2026-11-21
 
 ### Added
