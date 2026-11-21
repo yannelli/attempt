@@ -18,9 +18,9 @@ class ExponentialBackoff implements RetryStrategy
     public function getDelay(int $attempt, int $baseDelay): int
     {
         $base = $this->base > 0 ? $this->base : $baseDelay;
-        $delay = (int) ($base * pow($this->multiplier, $attempt - 1));
 
-        return min($delay, $this->maxDelay);
+        // Cap before casting so large attempt numbers cannot overflow to zero or negative delays
+        return (int) min($base * $this->multiplier ** ($attempt - 1), $this->maxDelay);
     }
 
     public function shouldRetry(Throwable $e, int $attempt, int $maxAttempts): bool

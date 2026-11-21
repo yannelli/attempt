@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Event;
+use Yannelli\Attempt\AttemptBuilder;
+use Yannelli\Attempt\Contracts\Attemptable;
+use Yannelli\Attempt\Contracts\ConfiguresAttempt;
+use Yannelli\Attempt\Events\FallbackTriggered;
 use Yannelli\Attempt\Facades\Attempt;
 use Yannelli\Attempt\Tests\Fixtures\TestFallbackable;
 
@@ -112,4 +117,71 @@ it('uses fallback class string', function () {
 
     expect($result->succeeded())->toBeTrue();
     expect($result->value()['fallback'])->toBeTrue();
+});
+
+it('does not trigger skipped fallbacks', function () {
+    Event::fake();
+    $triggered = [];
+
+    $skipping = new class extends TestFallbackable
+    {
+        public function shouldSkip(Throwable $e): bool
+        {
+            return true;
+        }
+    };
+
+    $result = Attempt::try(fn () => throw new RuntimeException('primary failed'))
+        ->fallback([$skipping::class, fn () => 'used'])
+        ->onFallback(function ($context, $fallback) use (&$triggered) {
+            $triggered[] = $fallback;
+        })
+        ->run();
+
+    expect($result->value())->toBe('used')
+        ->and($triggered)->toHaveCount(1)
+        ->and($triggered[0])->toBeInstanceOf(Closure::class);
+
+    Event::assertDispatchedTimes(FallbackTriggered::class, 1);
+});
+
+it('does not duplicate list fallbacks when executed again after throwing', function () {
+    $fallbackCalls = 0;
+
+    $builder = Attempt::try([
+        fn () => throw new RuntimeException('primary failed'),
+        function () use (&$fallbackCalls) {
+            $fallbackCalls++;
+
+            throw new RuntimeException('fallback failed');
+        },
+    ])->throw();
+
+    expect(fn () => $builder->run())->toThrow(RuntimeException::class)
+        ->and(fn () => $builder->run())->toThrow(RuntimeException::class)
+        ->and($fallbackCalls)->toBe(2);
+});
+
+it('does not apply self configuration from fallbacks', function () {
+    $fallback = new class implements Attemptable, ConfiguresAttempt
+    {
+        public static int $configurations = 0;
+
+        public function handle(mixed ...$input): mixed
+        {
+            return 'fallback';
+        }
+
+        public function configureAttempt(AttemptBuilder $attempt): void
+        {
+            self::$configurations++;
+        }
+    };
+
+    $result = Attempt::try(fn () => throw new RuntimeException('primary failed'))
+        ->fallback($fallback::class)
+        ->run();
+
+    expect($result->value())->toBe('fallback')
+        ->and($fallback::$configurations)->toBe(0);
 });

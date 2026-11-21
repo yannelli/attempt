@@ -25,12 +25,23 @@ class AsyncAttemptJob implements ShouldQueue
 
     protected ?SerializableClosure $catchCallback;
 
+    /**
+     * The number of seconds the job can run before timing out.
+     *
+     * Subclasses may set a default; a timeout given at dispatch takes precedence.
+     */
+    public ?int $timeout = null;
+
     public function __construct(
         array $configuration,
         ?Closure $thenCallback = null,
         ?Closure $catchCallback = null,
-        public int $timeout = 60
+        ?int $timeout = null
     ) {
+        if ($timeout !== null) {
+            $this->timeout = $timeout;
+        }
+
         $this->configuration = $this->wrapClosures($configuration);
         $this->thenCallback = $thenCallback ? new SerializableClosure($thenCallback) : null;
         $this->catchCallback = $catchCallback ? new SerializableClosure($catchCallback) : null;

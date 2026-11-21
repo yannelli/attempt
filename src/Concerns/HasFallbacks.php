@@ -11,8 +11,6 @@ trait HasFallbacks
 {
     protected array $fallbacks = [];
 
-    protected bool $fallbackPipelineMode = false;
-
     /**
      * Set fallback handler(s).
      */
@@ -25,7 +23,6 @@ trait HasFallbacks
         $this->fallbacks = is_array($fallbacks) && ! is_callable($fallbacks)
             ? $fallbacks
             : [$fallbacks];
-        $this->fallbackPipelineMode = false;
 
         return $this;
     }
@@ -40,7 +37,6 @@ trait HasFallbacks
         }
 
         $this->fallbacks = $pipes;
-        $this->fallbackPipelineMode = true;
 
         return $this;
     }

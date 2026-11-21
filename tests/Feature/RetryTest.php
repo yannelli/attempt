@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Sleep;
 use Yannelli\Attempt\Facades\Attempt;
 
 it('retries on failure', function () {
@@ -187,4 +188,33 @@ it('supports custom delay callback', function () {
 
     expect($result->succeeded())->toBeTrue();
     expect($delays)->toBe([10, 20]);
+});
+
+it('sleeps between retries using the fakeable sleep helper', function () {
+    Sleep::fake();
+
+    Attempt::try(fn () => throw new RuntimeException('fail'))
+        ->retry(2)
+        ->delay([100, 250])
+        ->run();
+
+    Sleep::assertSequence([
+        Sleep::for(100)->milliseconds(),
+        Sleep::for(250)->milliseconds(),
+    ]);
+});
+
+it('defers to the configured delay when the delay callback returns null', function () {
+    Sleep::fake();
+
+    Attempt::try(fn () => throw new RuntimeException('fail'))
+        ->retry(2)
+        ->delay([100, 250])
+        ->delayUsing(fn (int $attempt): ?int => $attempt === 1 ? 500 : null)
+        ->run();
+
+    Sleep::assertSequence([
+        Sleep::for(500)->milliseconds(),
+        Sleep::for(250)->milliseconds(),
+    ]);
 });

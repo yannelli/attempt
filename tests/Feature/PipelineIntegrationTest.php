@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Pipeline\Pipeline;
+use Illuminate\Support\Sleep;
 use Yannelli\Attempt\Facades\Attempt;
 use Yannelli\Attempt\Pipes\AttemptPipe;
 
@@ -147,4 +148,17 @@ it('AttemptPipe supports fallback', function () {
         ->thenReturn();
 
     expect($result)->toBe('fallback');
+});
+
+it('AttemptPipe supports custom delay callbacks', function () {
+    Sleep::fake();
+
+    $pipe = AttemptPipe::wrap(fn () => throw new RuntimeException('fail'))
+        ->retry(1)
+        ->delayUsing(fn () => 75)
+        ->fallback(fn () => 'fallback');
+
+    app(Pipeline::class)->send('input')->through([$pipe])->thenReturn();
+
+    Sleep::assertSequence([Sleep::for(75)->milliseconds()]);
 });
